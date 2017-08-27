@@ -13,7 +13,7 @@ import os
 import shutil
 import subprocess
 
-import colored_logging
+import r128gain.colored_logging as colored_logging
 
 
 def get_r128_loudness(audio_filepath, *, ffmpeg_path=None, calc_peak=True, enable_ffmpeg_threading=True):
