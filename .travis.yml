@@ -46,7 +46,7 @@ install:
 script:
   - "export PATH=$HOME/.local/bin:$PATH"
   - "export TEST_DL_CACHE_DIR=$HOME/.cache/r128gain-test"
-  - "coverage run --source=r128gain test"
+  - "coverage run --source=r128gain setup.py test"
 after_success:
   - "coveralls"
 before_deploy:
