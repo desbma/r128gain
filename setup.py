@@ -17,6 +17,13 @@ with open(os.path.join("r128gain", "__init__.py"), "rt") as f:
 with open("test-requirements.txt", "rt") as f:
   test_requirements = f.read().splitlines()
 
+requirements = []
+# require enum34 if enum module is missing (Python 3.3)
+try:
+  import enum
+except ImportError:
+  requirements.append("enum34")
+
 try:
   import pypandoc
   readme = pypandoc.convert("README.md", "rst")
@@ -30,6 +37,7 @@ setup(name="r128gain",
       packages=find_packages(exclude=("tests",)),
       entry_points={"console_scripts": ["r128gain = r128gain:cl_main"]},
       test_suite="tests",
+      install_requires=requirements,
       tests_require=test_requirements,
       description="Fast audio loudness scanner & tagger",
       long_description=readme,
