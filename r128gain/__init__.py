@@ -75,8 +75,9 @@ def scan(audio_filepaths, *, ffmpeg_path=None, thread_count=None):
         r128_data[audio_filepath] = futures[audio_filepath].result()
       except Exception as e:
         # raise
-        logging.getLogger().warning("Failed to analyze file '%s': %s" % (audio_filepath,
-                                                                         e.__class__.__qualname__))
+        logging.getLogger().warning("Failed to analyze file '%s': %s %e" % (audio_filepath,
+                                                                            e.__class__.__qualname__,
+                                                                            e))
   return r128_data
 
 
