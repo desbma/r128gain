@@ -1,0 +1,68 @@
+dist: trusty
+sudo: false
+language: python
+cache:
+  pip: true
+  directories:
+    - $HOME/FFmpeg
+    - $HOME/.cache/r128gain-test
+python:
+  - "3.3"
+  - "3.4"
+  - "3.5"
+  - "3.5-dev"
+  - "3.6"
+  - "3.6-dev"
+  - "3.7-dev"
+env:
+  - FFMPEG_VERSION=2.3
+  - FFMPEG_VERSION=2.4
+  - FFMPEG_VERSION=2.5
+  - FFMPEG_VERSION=2.6
+  - FFMPEG_VERSION=2.7
+  - FFMPEG_VERSION=2.8
+  - FFMPEG_VERSION=3.0
+  - FFMPEG_VERSION=3.1
+  - FFMPEG_VERSION=3.2
+  - FFMPEG_VERSION=3.3
+  - FFMPEG_VERSION=master
+matrix:
+  allow_failures:
+    - python: "3.5-dev"
+    - python: "3.6-dev"
+    - python: "3.7-dev"
+  fast_finish: true
+addons:
+  apt:
+    packages:
+      - yasm
+      - pandoc
+before_install:
+  - "./ci/install-ffmpeg $FFMPEG_VERSION"
+  - "pip install -U pip"
+install:
+  - "pip install -r test-requirements.txt"
+  - "pip install coveralls"
+script:
+  - "export PATH=$HOME/.local/bin:$PATH"
+  - "export TEST_DL_CACHE_DIR=$HOME/.cache/r128gain-test"
+  - "coverage run --source=r128gain test"
+after_success:
+  - "coveralls"
+before_deploy:
+  - "pip install pypandoc"
+  - "pip install restructuredtext_lint && t=$(mktemp --suffix=.rst) && pandoc README.md -o $t && rst-lint $t"
+deploy:
+  provider: pypi
+  user: desbma
+  password:
+    secure: "ZQ0Ya1sySDwbK1ipCfl8todh4FXesT1qlwDr3yJGv23SfelIAgswVLMDb3+i51jbnRNqSkhelsw5GUt7/51v6y1VH5AKG2LkqQr9JLNA2UAXeP59IvgHdjjganZWbACFZM6h8zExYptsgdZFvlqaMP5JKKx0yo3nZEiPrIVt6xb96wnUcGMbEI/3fITZWRHcWzG0TDCG2HzwCo7DdSA3D9KGXKYEMGSMfmsnwqMPK86JP2Ue8IrU84sK7fbBvm+65Jwm+PIPKFodfFS+dgwkL2pvRjk7cUq719islUR6c4owXuV0c3fKwOPkiV0lGaCouWBiXqG1iWbQAxMDvog8QxbXSDqsQQV6ZRX8wCu9yXG72PJsqArz1niDp2cDP5Hg28ync2nenMFtTtxUBhU/KfP+nMuJLpo1f4OiWTAVWHdkg8jYAEJVwGT9wjGb6mi4HyvX29MtrtbU9qikBCCiKTw0B0Qm16gpu13nPd8xtEFcPz/DgOin2fSKrtr171M59sZC0+aG3e26grgo5I/LdNWqxjvbDPrBxUlbe3JjpLIKqY7a3GVy4wSXJ5Jlvv0YUscFBcARg3vLjynCj3QuhAfPButzoqfbs0H146WSTrFdzjjzy+aJwbehM3AwrJ4ia6ih9UayZu24j7LvYWWK7+3nDUl+uMUQ/cc16TdvsBM="
+  on:
+    tags: true
+    branch: master
+notifications:
+  email:
+    recipients:
+      - secure: "cWAk38EBNf3noKvtowNOJdboJ/2X2Mieaf8OVMcOoxdXXD1CZ1iDSUFur6AIPBCh4l5jHrhxvMtIA5xrXYhAkVwlS72PdrclBEP+OQtHJ5NsvAcQDPTqnqAIFSnPInsJDqL9ROsl3TZINWYQVTcnodLIonYlk9X5xiGpFJ4rb7nkFMvKYCtIXeOgG4zwzZ7fMy7chGO1H1GWMr3PgQBiOGf2FJlD/P1VsH8aC7hhOx9hUUjkTm2YrZ/+HzTmR4WE4iGSXSj2HBO0yhV//R9B81vfmSX1lkxnl+w8rmdlYolx2f8O26+kAL9CZJS5CQPJbvW7wT+V/Fb8TUnw/ouP8rOWL95bPmDLtm7KO9Z1YXKzzsRueWolv7tnbOOgiuL/1MRzUvId2daE/3yrx/aPLj4RR8pOyTdDTWIchD8EicWsMuldqbU9fY0w6UYbt9fo7pNcKAvb9PCUjiHsThPMhogImqIXn7tkRjasCH9nby31WTlz2GhASg5VrbmIOeRnEYsVSzTKATBAkwSomw51mlFBmsjSHLtrHwbtVobyZrtqdXqK5yx/AfRguktEgpxSxi0bDGWNN97Qpme2vNh2GYxkupQ4IqFMFV/Xa8OeT8CkFhcCxg88oHhe6V7C/nQPtgeJgV3PXSlurysHkabGW+qP2ICXmxKLqizRb662Iqo="
+    on_success: always
+    on_failure: always

@@ -1,0 +1,56 @@
+#!/bin/bash -eu
+
+set -o pipefail
+
+readonly FFMPEG_VERSION=${1:?}
+readonly BUILD_DIR=${2:-$HOME/FFmpeg}
+readonly INSTALL_DIR=${3:-$HOME/.local}
+readonly PROC_COUNT=$(grep -c '^processor' /proc/cpuinfo)
+
+
+configure() {
+  ./configure --prefix=$INSTALL_DIR \
+              --disable-ffserver \
+              --disable-encoders \
+              --disable-debug
+}
+
+repo_dir=$BUILD_DIR/$FFMPEG_VERSION
+if [ "$FFMPEG_VERSION" = "master" ]
+then
+  branch_name=master
+else
+  branch_name=release/$FFMPEG_VERSION
+fi
+
+if [ -d $repo_dir ]
+then
+  # repo dir already exists
+  cd $repo_dir
+  git fetch
+
+  if [ "$(git rev-parse @)" != "$(git rev-parse origin/$branch_name)" ]
+  then
+    # update
+    git pull
+
+    # cleanup
+    make clean || true
+    make distclean || true
+
+    # (re)configure
+    configure
+  fi
+else
+  # clone & set branch
+  git clone https://git.ffmpeg.org/ffmpeg.git $repo_dir
+  cd $repo_dir
+  git checkout $branch_name
+
+  # configure
+  configure
+fi
+
+# build
+make -j $PROC_COUNT
+make install

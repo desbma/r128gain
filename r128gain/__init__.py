@@ -105,6 +105,7 @@ def main(audio_filepaths, *, ffmpeg_path=None, thread_count=None, dry_run=False)
         peak = "-"
       level, peak = map(str, (level, peak))
     print(audio_filepath.ljust(max_len), level.ljust(len(cols[1])), peak, sep="  ")
+
   if dry_run:
     return
 
