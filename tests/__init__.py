@@ -78,35 +78,64 @@ class TestR128Gain(unittest.TestCase):
     peak = -0.2
     ref_loudness = -18
 
-    r128gain.tag(self.vorbis_filepath, loudness, peak, ref_loudness)
-    mf = mutagen.File(self.vorbis_filepath)
-    self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-    self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"], ["-14.80 dB"])
-    self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-    self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["0.97723722"])
+    for i, delete_tags in zip(range(3), (False, True, False)):
+      # i = 0 : add RG tag in existing tags
+      # i = 1 : add RG tag with no existing tags
+      # i = 2 : overwrites RG tag in existing tags
+      with self.subTest(iteration=i + 1, delete_tags=delete_tags):
+        if delete_tags:
+          for file in (self.vorbis_filepath,
+                       self.opus_filepath,
+                       self.mp3_filepath,
+                       self.m4a_filepath):
+            mf = mutagen.File(file)
+            mf.delete()
+            mf.save()
 
-    r128gain.tag(self.opus_filepath, loudness, peak, ref_loudness)
-    mf = mutagen.File(self.opus_filepath)
-    self.assertIn("R128_TRACK_GAIN", mf)
-    self.assertEqual(mf["R128_TRACK_GAIN"], ["-3789"])
+        if delete_tags:
+          mf = mutagen.File(self.vorbis_filepath)
+          self.assertNotIn("REPLAYGAIN_TRACK_GAIN", mf)
+          self.assertNotIn("REPLAYGAIN_TRACK_PEAK", mf)
+        r128gain.tag(self.vorbis_filepath, loudness, peak, ref_loudness)
+        mf = mutagen.File(self.vorbis_filepath)
+        self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+        self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"], ["-14.80 dB"])
+        self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+        self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["0.97723722"])
 
-    r128gain.tag(self.mp3_filepath, loudness, peak, ref_loudness)
-    mf = mutagen.File(self.mp3_filepath)
-    self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
-    self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text, ["-14.80 dB"])
-    self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-    self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.977237"])
+        if delete_tags:
+          mf = mutagen.File(self.vorbis_filepath)
+          self.assertNotIn("R128_TRACK_GAIN", mf)
+        r128gain.tag(self.opus_filepath, loudness, peak, ref_loudness)
+        mf = mutagen.File(self.opus_filepath)
+        self.assertIn("R128_TRACK_GAIN", mf)
+        self.assertEqual(mf["R128_TRACK_GAIN"], ["-3789"])
 
-    r128gain.tag(self.m4a_filepath, loudness, peak, ref_loudness)
-    mf = mutagen.File(self.m4a_filepath)
-    self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN", mf)
-    self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"]), 1)
-    self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"][0]).decode(),
-                     "-14.80 dB")
-    self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK", mf)
-    self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"]), 1)
-    self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"][0]).decode(),
-                     "0.977237")
+        if delete_tags:
+          mf = mutagen.File(self.vorbis_filepath)
+          self.assertNotIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+          self.assertNotIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+        r128gain.tag(self.mp3_filepath, loudness, peak, ref_loudness)
+        mf = mutagen.File(self.mp3_filepath)
+        self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+        self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text, ["-14.80 dB"])
+        self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+        self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.977237"])
+
+        if delete_tags:
+          mf = mutagen.File(self.vorbis_filepath)
+          self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN", mf)
+          self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK", mf)
+        r128gain.tag(self.m4a_filepath, loudness, peak, ref_loudness)
+        mf = mutagen.File(self.m4a_filepath)
+        self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN", mf)
+        self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"]), 1)
+        self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"][0]).decode(),
+                         "-14.80 dB")
+        self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK", mf)
+        self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"]), 1)
+        self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"][0]).decode(),
+                         "0.977237")
 
 
 if __name__ == "__main__":
