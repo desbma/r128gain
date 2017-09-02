@@ -2,7 +2,7 @@
 
 """ Scan audio files and tag them with ReplayGain/R128 loudness metadata. """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "desbma"
 __license__ = "GPLv3"
 
