@@ -14,15 +14,16 @@ if sys.hexversion < 0x3030000:
 with open(os.path.join("r128gain", "__init__.py"), "rt") as f:
   version = re.search("__version__ = \"([^\"]+)\"", f.read()).group(1)
 
-with open("test-requirements.txt", "rt") as f:
-  test_requirements = f.read().splitlines()
-
-requirements = []
+with open("requirements.txt", "rt") as f:
+  requirements = f.read().splitlines()
 # require enum34 if enum module is missing (Python 3.3)
 try:
   import enum
 except ImportError:
   requirements.append("enum34")
+
+with open("test-requirements.txt", "rt") as f:
+  test_requirements = f.read().splitlines()
 
 try:
   import pypandoc

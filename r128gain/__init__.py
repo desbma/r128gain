@@ -13,6 +13,8 @@ import os
 import shutil
 import subprocess
 
+import mutagen
+
 import r128gain.colored_logging as colored_logging
 
 
@@ -81,12 +83,50 @@ def scan(audio_filepaths, *, ffmpeg_path=None, thread_count=None):
   return r128_data
 
 
-def tag():
-  # TODO
-  pass
+def float_to_q7dot8(f):
+  """ Encode float f to a fixed point Q7.8 integer. """
+  # https://en.wikipedia.org/wiki/Q_(number_format)#Float_to_Q
+  return int(round(f * (2 ** 8), 0))
 
 
-def main(audio_filepaths, *, ffmpeg_path=None, thread_count=None, dry_run=False):
+def tag(filepath, loudness, peak, ref_loudness):
+  """ Tag audio file with loudness metadata. """
+  logging.getLogger().info("Tagging file '%s'" % (filepath))
+  mf = mutagen.File(filepath)
+
+  if isinstance(mf, mutagen.oggvorbis.OggVorbis):
+    # https://wiki.xiph.org/VorbisComment#Replay_Gain
+    mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (ref_loudness - loudness)
+    # peak_dbfs = 20 * log10(max_sample) <=> max_sample = 10^(peak_dbfs / 20)
+    mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (10 ** (peak / 20))
+
+  elif isinstance(mf, mutagen.oggopus.OggOpus):
+    # https://wiki.xiph.org/OggOpus#Comment_Header
+    q78 = float_to_q7dot8(ref_loudness - loudness)
+    assert(-32768 <= q78 <= 32767)
+    mf["R128_TRACK_GAIN"] = str(q78)
+
+  elif isinstance(mf, mutagen.mp3.MP3):
+    # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification#ID3v2
+    mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
+                                 desc="REPLAYGAIN_TRACK_GAIN",
+                                 text="%.2f dB" % (ref_loudness - loudness)))
+    mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
+                                 desc="REPLAYGAIN_TRACK_PEAK",
+                                 text="%.6f" % (10 ** (peak / 20))))
+    # other legacy formats:
+    # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RGAD
+    # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RVA2
+
+  elif isinstance(mf, mutagen.mp4.MP4):
+    # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
+    mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (ref_loudness - loudness)).encode())
+    mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (peak / 20))).encode())
+
+  mf.save()
+
+
+def main(audio_filepaths, *, ref_loudness, ffmpeg_path=None, thread_count=None, dry_run=False):
   # analyze files
   r128_data = scan(audio_filepaths,
                    ffmpeg_path=ffmpeg_path,
@@ -109,6 +149,19 @@ def main(audio_filepaths, *, ffmpeg_path=None, thread_count=None, dry_run=False)
 
   if dry_run:
     return
+
+  # tag
+  for audio_filepath in audio_filepaths:
+    try:
+      level, peak = r128_data[audio_filepath]
+    except KeyError:
+      continue
+    try:
+      tag(audio_filepath, level, peak, ref_loudness)
+    except Exception as e:
+      logging.getLogger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
+                                                                    e.__class__.__qualname__,
+                                                                    e))
 
 
 def cl_main():
@@ -164,7 +217,8 @@ def cl_main():
     main(args.filepath,
          ffmpeg_path=args.ffmpeg_path,
          thread_count=args.thread_count,
-         dry_run=args.dry_run)
+         dry_run=args.dry_run,
+         ref_loudness=args.reference_loudness)
   except RuntimeError as e:
     logging.getLogger().error(e)
     exit(1)

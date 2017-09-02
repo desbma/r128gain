@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import urllib
 
+import mutagen
 import requests
 
 import r128gain
@@ -71,6 +72,41 @@ class TestR128Gain(unittest.TestCase):
                       self.opus_filepath: (-14.7, None),
                       self.mp3_filepath: (-15.3, -0.1),
                       self.m4a_filepath: (-20.6, 0.1)})
+
+  def test_tag(self):
+    loudness = -3.2
+    peak = -0.2
+    ref_loudness = -18
+
+    r128gain.tag(self.vorbis_filepath, loudness, peak, ref_loudness)
+    mf = mutagen.File(self.vorbis_filepath)
+    self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+    self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"], ["-14.80 dB"])
+    self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+    self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["0.97723722"])
+
+    r128gain.tag(self.opus_filepath, loudness, peak, ref_loudness)
+    mf = mutagen.File(self.opus_filepath)
+    self.assertIn("R128_TRACK_GAIN", mf)
+    self.assertEqual(mf["R128_TRACK_GAIN"], ["-3789"])
+
+    r128gain.tag(self.mp3_filepath, loudness, peak, ref_loudness)
+    mf = mutagen.File(self.mp3_filepath)
+    self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+    self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text, ["-14.80 dB"])
+    self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+    self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.977237"])
+
+    r128gain.tag(self.m4a_filepath, loudness, peak, ref_loudness)
+    mf = mutagen.File(self.m4a_filepath)
+    self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN", mf)
+    self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"]), 1)
+    self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"][0]).decode(),
+                     "-14.80 dB")
+    self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK", mf)
+    self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"]), 1)
+    self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"][0]).decode(),
+                     "0.977237")
 
 
 if __name__ == "__main__":
