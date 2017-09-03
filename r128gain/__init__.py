@@ -18,9 +18,13 @@ import mutagen
 import r128gain.colored_logging as colored_logging
 
 
+def logger():
+  return logging.getLogger("r128gain")
+
+
 def get_r128_loudness(audio_filepath, *, ffmpeg_path=None, calc_peak=True, enable_ffmpeg_threading=True):
   """ Get R128 loudness level and peak, in dbFS. """
-  logging.getLogger().info("Analyzing loudness of file '%s'" % (audio_filepath))
+  logger().info("Analyzing loudness of file '%s'" % (audio_filepath))
   cmd = [ffmpeg_path or "ffmpeg",
          "-hide_banner", "-nostats"]
   if not enable_ffmpeg_threading:
@@ -34,7 +38,7 @@ def get_r128_loudness(audio_filepath, *, ffmpeg_path=None, calc_peak=True, enabl
     cmd.extend(("-filter_threads", "1"))  # single filter thread
   cmd.extend(("-filter:a", "ebur128=%s" % (":".join("%s=%s" % (k, v) for k, v in filter_params.items())),
               "-f", "null", os.devnull))
-  logging.getLogger().debug(subprocess.list2cmdline(cmd))
+  logger().debug(subprocess.list2cmdline(cmd))
   output = subprocess.check_output(cmd,
                                    stdin=subprocess.DEVNULL,
                                    stderr=subprocess.STDOUT,
@@ -77,9 +81,9 @@ def scan(audio_filepaths, *, ffmpeg_path=None, thread_count=None):
         r128_data[audio_filepath] = futures[audio_filepath].result()
       except Exception as e:
         # raise
-        logging.getLogger().warning("Failed to analyze file '%s': %s %e" % (audio_filepath,
-                                                                            e.__class__.__qualname__,
-                                                                            e))
+        logger().warning("Failed to analyze file '%s': %s %e" % (audio_filepath,
+                                                                 e.__class__.__qualname__,
+                                                                 e))
   return r128_data
 
 
@@ -91,7 +95,7 @@ def float_to_q7dot8(f):
 
 def tag(filepath, loudness, peak, ref_loudness):
   """ Tag audio file with loudness metadata. """
-  logging.getLogger().info("Tagging file '%s'" % (filepath))
+  logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
 
   if isinstance(mf, mutagen.oggvorbis.OggVorbis):
@@ -126,26 +130,27 @@ def tag(filepath, loudness, peak, ref_loudness):
   mf.save()
 
 
-def main(audio_filepaths, *, ref_loudness, ffmpeg_path=None, thread_count=None, dry_run=False):
+def process(audio_filepaths, *, ref_loudness=-18, ffmpeg_path=None, thread_count=None, dry_run=False, report=False):
   # analyze files
   r128_data = scan(audio_filepaths,
                    ffmpeg_path=ffmpeg_path,
                    thread_count=thread_count)
 
-  # report
-  max_len = max(map(len, audio_filepaths))
-  cols = ("Filepath", "Level (dBFS)", "Peak (dBFS)")
-  print(cols[0].ljust(max_len), cols[1], cols[2], sep="  ")
-  for audio_filepath in audio_filepaths:
-    try:
-      level, peak = r128_data[audio_filepath]
-    except KeyError:
-      level, peak = "ERR", "ERR"
-    else:
-      if peak is None:
-        peak = "-"
-      level, peak = map(str, (level, peak))
-    print(audio_filepath.ljust(max_len), level.ljust(len(cols[1])), peak, sep="  ")
+  if report:
+    # report
+    max_len = max(map(len, audio_filepaths))
+    cols = ("Filepath", "Level (dBFS)", "Peak (dBFS)")
+    print(cols[0].ljust(max_len), cols[1], cols[2], sep="  ")
+    for audio_filepath in audio_filepaths:
+      try:
+        level, peak = r128_data[audio_filepath]
+      except KeyError:
+        level, peak = "ERR", "ERR"
+      else:
+        if peak is None:
+          peak = "-"
+        level, peak = map(str, (level, peak))
+      print(audio_filepath.ljust(max_len), level.ljust(len(cols[1])), peak, sep="  ")
 
   if dry_run:
     return
@@ -159,9 +164,9 @@ def main(audio_filepaths, *, ref_loudness, ffmpeg_path=None, thread_count=None, 
     try:
       tag(audio_filepath, level, peak, ref_loudness)
     except Exception as e:
-      logging.getLogger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
-                                                                    e.__class__.__qualname__,
-                                                                    e))
+      logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
+                                                         e.__class__.__qualname__,
+                                                         e))
 
 
 def cl_main():
@@ -214,11 +219,12 @@ def cl_main():
 
   # main
   try:
-    main(args.filepath,
-         ffmpeg_path=args.ffmpeg_path,
-         thread_count=args.thread_count,
-         dry_run=args.dry_run,
-         ref_loudness=args.reference_loudness)
+    process(args.filepath,
+            ffmpeg_path=args.ffmpeg_path,
+            thread_count=args.thread_count,
+            dry_run=args.dry_run,
+            ref_loudness=args.reference_loudness,
+            report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
   except RuntimeError as e:
     logging.getLogger().error(e)
     exit(1)
