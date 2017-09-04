@@ -2,6 +2,7 @@
 
 import logging
 import os
+import random
 import shutil
 import tempfile
 import unittest
@@ -137,6 +138,39 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"][0]).decode(),
                          "0.977237")
 
+  def test_process(self):
+    ref_loudness = random.randint(-30, 10)
+    r128gain.process((self.vorbis_filepath,
+                      self.opus_filepath,
+                      self.mp3_filepath,
+                      self.m4a_filepath),
+                     ref_loudness=ref_loudness)
+
+    mf = mutagen.File(self.vorbis_filepath)
+    self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+    self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"], ["%.2f dB" % (7.7 + ref_loudness)])
+    self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+    self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["1.34896288"])
+
+    mf = mutagen.File(self.opus_filepath)
+    self.assertIn("R128_TRACK_GAIN", mf)
+    self.assertEqual(mf["R128_TRACK_GAIN"], [str(r128gain.float_to_q7dot8(14.7 + ref_loudness))])
+
+    mf = mutagen.File(self.mp3_filepath)
+    self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+    self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text, ["%.2f dB" % (15.3 + ref_loudness)])
+    self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+    self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.988553"])
+
+    mf = mutagen.File(self.m4a_filepath)
+    self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN", mf)
+    self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"]), 1)
+    self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"][0]).decode(),
+                     "%.2f dB" % (20.6 + ref_loudness))
+    self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK", mf)
+    self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"]), 1)
+    self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"][0]).decode(),
+                     "1.011579")
 
 if __name__ == "__main__":
   # disable logging
