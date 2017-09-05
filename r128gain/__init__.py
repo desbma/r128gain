@@ -22,14 +22,15 @@ def logger():
   return logging.getLogger("r128gain")
 
 
-def get_r128_loudness(audio_filepath, *, ffmpeg_path=None, calc_peak=True, enable_ffmpeg_threading=True):
+def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
   """ Get R128 loudness level and peak, in dbFS. """
-  logger().info("Analyzing loudness of file '%s'" % (audio_filepath))
+  # TODO if len(audio_filepaths) > 1, concat
+  logger().info("Analyzing loudness of file '%s'" % (audio_filepaths[0]))
   cmd = [ffmpeg_path or "ffmpeg",
          "-hide_banner", "-nostats"]
   if not enable_ffmpeg_threading:
     cmd.extend(("-threads", "1"))  # single decoding thread
-  cmd.extend(("-i", audio_filepath,
+  cmd.extend(("-i", audio_filepaths[0],
               "-map", "a"))
   filter_params = {"framelog": "verbose"}
   if calc_peak:
@@ -54,7 +55,7 @@ def get_r128_loudness(audio_filepath, *, ffmpeg_path=None, calc_peak=True, enabl
   return r128_stats["I"], r128_stats.get("Peak")
 
 
-def scan(audio_filepaths, *, ffmpeg_path=None, thread_count=None):
+def scan(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=None):
   """ Analyze files, and return a dictionary of filepath to loudness metadata. """
   r128_data = {}
 
@@ -71,10 +72,11 @@ def scan(audio_filepaths, *, ffmpeg_path=None, thread_count=None):
       else:
         calc_peak = True
       futures[audio_filepath] = executor.submit(get_r128_loudness,
-                                                audio_filepath,
-                                                ffmpeg_path=ffmpeg_path,
+                                                (audio_filepath,),
                                                 calc_peak=calc_peak,
-                                                enable_ffmpeg_threading=enable_ffmpeg_threading)
+                                                enable_ffmpeg_threading=enable_ffmpeg_threading,
+                                                ffmpeg_path=ffmpeg_path)
+    # TODO if album_gain...
 
     for audio_filepath in audio_filepaths:
       try:
@@ -93,7 +95,7 @@ def float_to_q7dot8(f):
   return int(round(f * (2 ** 8), 0))
 
 
-def tag(filepath, loudness, peak, ref_loudness):
+def tag(filepath, loudness, peak, *, ref_loudness=-18):
   """ Tag audio file with loudness metadata. """
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
@@ -130,11 +132,13 @@ def tag(filepath, loudness, peak, ref_loudness):
   mf.save()
 
 
-def process(audio_filepaths, *, ref_loudness=-18, ffmpeg_path=None, thread_count=None, dry_run=False, report=False):
+def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=None, dry_run=False,
+            ref_loudness=-18, report=False):
   # analyze files
   r128_data = scan(audio_filepaths,
-                   ffmpeg_path=ffmpeg_path,
-                   thread_count=thread_count)
+                   album_gain=album_gain,
+                   thread_count=thread_count,
+                   ffmpeg_path=ffmpeg_path)
 
   if report:
     # report
@@ -162,7 +166,7 @@ def process(audio_filepaths, *, ref_loudness=-18, ffmpeg_path=None, thread_count
     except KeyError:
       continue
     try:
-      tag(audio_filepath, level, peak, ref_loudness)
+      tag(audio_filepath, level, peak, ref_loudness=ref_loudness)
     except Exception as e:
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                          e.__class__.__qualname__,
@@ -176,11 +180,11 @@ def cl_main():
   arg_parser.add_argument("filepath",
                           nargs="+",
                           help="Audio files")
-  arg_parser.add_argument("-r",
-                          "--reference-loudness",
-                          type=int,
-                          default=-18,
-                          help="Reference loudness level in dBFS. Do not change unless you know what you are doing")
+  arg_parser.add_argument("-a",
+                          "--album-gain",
+                          taction="store_true",
+                          default=False,
+                          help="Enable album gain")
   arg_parser.add_argument("-c",
                           "--thread-count",
                           type=int,
@@ -195,6 +199,11 @@ def cl_main():
                           action="store_true",
                           default=False,
                           help="Do not write any tags, only show scan results")
+  arg_parser.add_argument("-r",
+                          "--reference-loudness",
+                          type=int,
+                          default=-18,
+                          help="Reference loudness level in dBFS. Do not change unless you know what you are doing")
   arg_parser.add_argument("-v",
                           "--verbosity",
                           choices=("warning", "normal", "debug"),
@@ -220,8 +229,9 @@ def cl_main():
   # main
   try:
     process(args.filepath,
-            ffmpeg_path=args.ffmpeg_path,
+            album_gain=args.album_gain,
             thread_count=args.thread_count,
+            ffmpeg_path=args.ffmpeg_path,
             dry_run=args.dry_run,
             ref_loudness=args.reference_loudness,
             report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
