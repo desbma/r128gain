@@ -13,14 +13,13 @@ r128gain is a multi platform command line tool to scan your audio files and tag 
 
 **This is beta software, please test and report bugs.**
 
-**Some major features are currently missing (album gain, recursive mode...) and will be implemented before version 1.0 is released.**
-
 
 ## Features
 
-* Uses threading to optimally use processor cores resulting in very fast processing
 * Supports all common audio file formats: MP3, AAC, Vorbis, Opus, FLAC, WavPack...
-* Supports new R128_xxx tag format for Opus files (very few scanners write this tag, athough it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
+* Writes tags compatible with music players reading track/album gain metadata
+* Supports new R128_XXX_GAIN tag format for Opus files (very few scanners write this tag, athough it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
+* Uses threading to optimally use processor cores resulting in very fast processing
 
 
 ## Installation
