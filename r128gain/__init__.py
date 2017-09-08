@@ -2,7 +2,7 @@
 
 """ Scan audio files and tag them with ReplayGain/R128 loudness metadata. """
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __author__ = "desbma"
 __license__ = "GPLv3"
 
@@ -228,7 +228,7 @@ def cl_main():
                           help="Audio files")
   arg_parser.add_argument("-a",
                           "--album-gain",
-                          taction="store_true",
+                          action="store_true",
                           default=False,
                           help="Enable album gain")
   arg_parser.add_argument("-c",
