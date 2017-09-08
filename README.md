@@ -12,19 +12,20 @@ Fast audio loudness scanner & tagger
 r128gain is a multi platform command line tool to scan your audio files and tag them with loudness metadata (ReplayGain v2 or Opus R128 gain format), to allow playback of several tracks or albums at a similar loudness level.
 
 **This is beta software, please test and report bugs.**
+
 **Some major features are currently missing (album gain, recursive mode...) and will be implemented before version 1.0 is released.**
 
 
 ## Features
 
-* Use threading to optimally use processor cores resulting in very fast processing
-* Supports all common audio file formats: MP3, ACC, Vorbis, Opus, FLAC, WavPack...
+* Uses threading to optimally use processor cores resulting in very fast processing
+* Supports all common audio file formats: MP3, AAC, Vorbis, Opus, FLAC, WavPack...
 * Supports new R128_xxx tag format for Opus files (very few scanners write this tag, athough it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
 
 
 ## Installation
 
-r128gain requires [Python](https://www.python.org/downloads/) >= 3.4.
+r128gain requires [Python](https://www.python.org/downloads/) >= 3.4 and [FFmpeg](https://www.ffmpeg.org/download.html) >= 2.8.
 
 ### From PyPI (with PIP)
 
