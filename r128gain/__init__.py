@@ -28,13 +28,10 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
                                                      ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
   cmd = [ffmpeg_path or "ffmpeg",
          "-hide_banner", "-nostats"]
-  if not enable_ffmpeg_threading:
-    cmd.extend(("-threads", "1"))  # single decoding thread
-  if len(audio_filepaths) > 1:
-    for audio_filepath in audio_filepaths:
-      cmd.extend(("-i", audio_filepath))
-  else:
-    cmd.extend(("-i", audio_filepaths[0]))
+  for i, audio_filepath in enumerate(audio_filepaths):
+    if not enable_ffmpeg_threading:
+      cmd.extend(("-threads:%u" % (i), "1"))  # single decoding thread
+    cmd.extend(("-i", audio_filepath))
   if not enable_ffmpeg_threading:
     cmd.extend(("-filter_threads", "1"))  # single filter thread
   filter_params = {"framelog": "verbose"}
