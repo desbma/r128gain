@@ -104,7 +104,7 @@ class TestR128Gain(unittest.TestCase):
                        ref)
 
       if album_gain:
-        # file order should not changes results
+        # file order should not change results
         filepaths = (self.vorbis_filepath,  # reduce permutation counts to speed up tests
                      self.opus_filepath,
                      self.flac_filepath)
@@ -153,7 +153,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["0.97723722"])
 
         if delete_tags:
-          mf = mutagen.File(self.vorbis_filepath)
+          mf = mutagen.File(self.opus_filepath)
           self.assertNotIn("R128_TRACK_GAIN", mf)
         r128gain.tag(self.opus_filepath, loudness, peak, ref_loudness=ref_loudness)
         mf = mutagen.File(self.opus_filepath)
@@ -161,7 +161,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(mf["R128_TRACK_GAIN"], ["-3789"])
 
         if delete_tags:
-          mf = mutagen.File(self.vorbis_filepath)
+          mf = mutagen.File(self.mp3_filepath)
           self.assertNotIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
           self.assertNotIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
         r128gain.tag(self.mp3_filepath, loudness, peak, ref_loudness=ref_loudness)
@@ -172,7 +172,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.977237"])
 
         if delete_tags:
-          mf = mutagen.File(self.vorbis_filepath)
+          mf = mutagen.File(self.m4a_filepath)
           self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN", mf)
           self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK", mf)
         r128gain.tag(self.m4a_filepath, loudness, peak, ref_loudness=ref_loudness)
@@ -185,6 +185,18 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"][0]).decode(),
                          "0.977237")
+
+        if delete_tags:
+          mf = mutagen.File(self.flac_filepath)
+          self.assertNotIn("REPLAYGAIN_TRACK_GAIN", mf)
+          self.assertNotIn("REPLAYGAIN_TRACK_PEAK", mf)
+        r128gain.tag(self.flac_filepath, loudness, peak, ref_loudness=ref_loudness)
+        mf = mutagen.File(self.flac_filepath)
+        self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+        self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"], ["-14.80 dB"])
+        self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+        self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["0.97723722"])
+
 
   def test_process(self):
     for album_gain in (False, True):
