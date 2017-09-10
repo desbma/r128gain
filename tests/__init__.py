@@ -141,7 +141,7 @@ class TestR128Gain(unittest.TestCase):
   def test_process(self):
     for album_gain in (False, True):
       ref_loudness = random.randint(-30, 10)
-      r128gain.process((self.m4a_filepath,  # we can hit a ffmpeg bug ("Buffer queue overflow, dropping.") if the order of file changes here
+      r128gain.process((self.m4a_filepath,
                         self.vorbis_filepath,
                         self.opus_filepath,
                         self.mp3_filepath),

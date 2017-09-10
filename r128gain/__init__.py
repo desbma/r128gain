@@ -37,13 +37,13 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   filter_params = {"framelog": "verbose"}
   if calc_peak:
     filter_params["peak"] = "true"
+  cmd.extend(("-map", "a"))
   if len(audio_filepaths) > 1:
     cmd.extend(("-filter_complex",
                 "concat=n=%u:v=0:a=1,ebur128=%s" % (len(audio_filepaths),
                                                     ":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
   else:
-    cmd.extend(("-map", "a",
-                "-filter:a", "ebur128=%s" % (":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
+    cmd.extend(("-filter:a", "ebur128=%s" % (":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
   cmd.extend(("-f", "null", os.devnull))
   logger().debug(subprocess.list2cmdline(cmd))
   output = subprocess.check_output(cmd,
