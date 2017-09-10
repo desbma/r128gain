@@ -16,6 +16,9 @@ import requests
 import r128gain
 
 
+IS_TRAVIS = os.getenv("CI") and os.getenv("TRAVIS")
+
+
 def download(url, filepath):
   cache_dir = os.getenv("TEST_DL_CACHE_DIR")
   if cache_dir is not None:
@@ -102,9 +105,13 @@ class TestR128Gain(unittest.TestCase):
 
       if album_gain:
         # file order should not changes results
-        for shuffled_filepaths in itertools.permutations(filepaths):
+        if IS_TRAVIS:
+          shuffled_filepaths_len = len(tuple(itertools.permutations(filepaths)))
+        for i, shuffled_filepaths in enumerate(itertools.permutations(filepaths), 1):
           if shuffled_filepaths == filepaths:
             continue
+          if IS_TRAVIS:
+            print("Testing permutation %u/%u..." % (i, shuffled_filepaths_len))
           self.assertEqual(r128gain.scan(shuffled_filepaths,
                                          album_gain=True),
                            ref)
