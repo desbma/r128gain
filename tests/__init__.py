@@ -105,6 +105,11 @@ class TestR128Gain(unittest.TestCase):
 
       if album_gain:
         # file order should not changes results
+        filepaths = (self.vorbis_filepath,  # reduce permutation counts to speed up tests
+                     self.opus_filepath,
+                     self.flac_filepath)
+        ref = r128gain.scan(filepaths,
+                            album_gain=True)
         if IS_TRAVIS:
           shuffled_filepaths_len = len(tuple(itertools.permutations(filepaths)))
         for i, shuffled_filepaths in enumerate(itertools.permutations(filepaths), 1):
