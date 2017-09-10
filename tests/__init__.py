@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import unittest
 import urllib
+import zipfile
 
 import mutagen
 import requests
@@ -36,18 +37,33 @@ class TestR128Gain(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     cls.ref_temp_dir = tempfile.TemporaryDirectory()
+
     vorbis_filepath = os.path.join(cls.ref_temp_dir.name, "f.ogg")
     download("https://upload.wikimedia.org/wikipedia/en/0/09/Opeth_-_Deliverance.ogg",
              vorbis_filepath)
+
     opus_filepath = os.path.join(cls.ref_temp_dir.name, "f.opus")
     download("https://people.xiph.org/~giles/2012/opus/ehren-paper_lights-64.opus",
              opus_filepath)
+
     mp3_filepath = os.path.join(cls.ref_temp_dir.name, "f.mp3")
     download("https://allthingsaudio.wikispaces.com/file/view/Shuffle%20for%20K.M.mp3/139190697/Shuffle%20for%20K.M.mp3",
              mp3_filepath)
+
     m4a_filepath = os.path.join(cls.ref_temp_dir.name, "f.m4a")
     download("https://auphonic.com/media/audio-examples/01.auphonic-demo-unprocessed.m4a",
              m4a_filepath)
+
+    flac_filepath = os.path.join(cls.ref_temp_dir.name, "f.flac")
+    flac_zic_filepath = "%s.zip" % (flac_filepath)
+    download("http://helpguide.sony.net/high-res/sample1/v1/data/Sample_HisokanaMizugame_88_2kHz24bit.flac.zip",
+             flac_zic_filepath)
+    with zipfile.ZipFile(flac_zic_filepath) as zip_file:
+      in_filename = zip_file.namelist()[0]
+      with zip_file.open(in_filename) as in_file:
+        with open(flac_filepath, "wb") as out_file:
+          shutil.copyfileobj(in_file, out_file)
+    os.remove(flac_zic_filepath)
 
   @classmethod
   def tearDownClass(cls):
@@ -61,6 +77,7 @@ class TestR128Gain(unittest.TestCase):
     self.opus_filepath = os.path.join(self.temp_dir.name, "f.opus")
     self.mp3_filepath = os.path.join(self.temp_dir.name, "f.mp3")
     self.m4a_filepath = os.path.join(self.temp_dir.name, "f.m4a")
+    self.flac_filepath = os.path.join(self.temp_dir.name, "f.flac")
 
   def tearDown(self):
     self.temp_dir.cleanup()
@@ -70,13 +87,15 @@ class TestR128Gain(unittest.TestCase):
       ref = {self.vorbis_filepath: (-7.7, 2.6),
              self.opus_filepath: (-14.7, None),
              self.mp3_filepath: (-15.3, -0.1),
-             self.m4a_filepath: (-20.6, 0.1)}
+             self.m4a_filepath: (-20.6, 0.1),
+             self.flac_filepath: (-26.7, -12.7)}
       if album_gain:
-        ref[0] = (-14.1, 2.6)
+        ref[0] = (-14.2, 2.6)
       filepaths = (self.vorbis_filepath,
                    self.opus_filepath,
                    self.mp3_filepath,
-                   self.m4a_filepath)
+                   self.m4a_filepath,
+                   self.flac_filepath)
       self.assertEqual(r128gain.scan(filepaths,
                                      album_gain=album_gain),
                        ref)
@@ -104,7 +123,8 @@ class TestR128Gain(unittest.TestCase):
           for file in (self.vorbis_filepath,
                        self.opus_filepath,
                        self.mp3_filepath,
-                       self.m4a_filepath):
+                       self.m4a_filepath,
+                       self.flac_filepath):
             mf = mutagen.File(file)
             mf.delete()
             mf.save()
@@ -157,10 +177,11 @@ class TestR128Gain(unittest.TestCase):
   def test_process(self):
     for album_gain in (False, True):
       ref_loudness = random.randint(-30, 10)
-      r128gain.process((self.m4a_filepath,
-                        self.vorbis_filepath,
+      r128gain.process((self.vorbis_filepath,
                         self.opus_filepath,
-                        self.mp3_filepath),
+                        self.mp3_filepath,
+                        self.m4a_filepath,
+                        self.flac_filepath),
                        album_gain=album_gain,
                        ref_loudness=ref_loudness)
 
@@ -171,7 +192,7 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["1.34896288"])
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-        self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"], ["%.2f dB" % (14.1 + ref_loudness)])
+        self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"], ["%.2f dB" % (14.2 + ref_loudness)])
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"], ["1.34896288"])
       else:
@@ -183,7 +204,7 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(mf["R128_TRACK_GAIN"], [str(r128gain.float_to_q7dot8(14.7 + ref_loudness))])
       if album_gain:
         self.assertIn("R128_ALBUM_GAIN", mf)
-        self.assertEqual(mf["R128_ALBUM_GAIN"], [str(r128gain.float_to_q7dot8(14.1+ ref_loudness))])
+        self.assertEqual(mf["R128_ALBUM_GAIN"], [str(r128gain.float_to_q7dot8(14.2+ ref_loudness))])
       else:
         self.assertNotIn("R128_ALBUM_GAIN", mf)
 
@@ -194,7 +215,7 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.988553"])
       if album_gain:
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-        self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text, ["%.2f dB" % (14.1 + ref_loudness)])
+        self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text, ["%.2f dB" % (14.2 + ref_loudness)])
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text, ["1.348963"])
       else:
@@ -214,7 +235,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(),
-                         "%.2f dB" % (14.1 + ref_loudness))
+                         "%.2f dB" % (14.2 + ref_loudness))
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"][0]).decode(),
@@ -223,6 +244,19 @@ class TestR128Gain(unittest.TestCase):
         self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
 
+      mf = mutagen.File(self.flac_filepath)
+      self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+      self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"], ["%.2f dB" % (26.7 + ref_loudness)])
+      self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+      self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["0.23173946"])
+      if album_gain:
+        self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+        self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"], ["%.2f dB" % (14.2 + ref_loudness)])
+        self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+        self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"], ["1.34896288"])
+      else:
+        self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+        self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
 if __name__ == "__main__":
   # disable logging

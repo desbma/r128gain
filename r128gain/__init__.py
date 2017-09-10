@@ -127,7 +127,7 @@ def tag(filepath, loudness, peak, *,
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
 
-  if isinstance(mf, mutagen.oggvorbis.OggVorbis):
+  if isinstance(mf, (mutagen.oggvorbis.OggVorbis, mutagen.flac.FLAC)):
     # https://wiki.xiph.org/VorbisComment#Replay_Gain
     mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (ref_loudness - loudness)
     # peak_dbfs = 20 * log10(max_sample) <=> max_sample = 10^(peak_dbfs / 20)
@@ -172,6 +172,11 @@ def tag(filepath, loudness, peak, *,
     if album_loudness is not None:
       mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (ref_loudness - album_loudness)).encode())
       mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (album_peak / 20))).encode())
+
+  else:
+    logger().warning("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
+                                                                  filepath))
+    return
 
   mf.save()
 
