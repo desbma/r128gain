@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import itertools
 import logging
 import os
 import random
@@ -65,14 +66,29 @@ class TestR128Gain(unittest.TestCase):
     self.temp_dir.cleanup()
 
   def test_scan(self):
-    self.assertEqual(r128gain.scan((self.vorbis_filepath,
-                                    self.opus_filepath,
-                                    self.mp3_filepath,
-                                    self.m4a_filepath)),
-                     {self.vorbis_filepath: (-7.7, 2.6),
-                      self.opus_filepath: (-14.7, None),
-                      self.mp3_filepath: (-15.3, -0.1),
-                      self.m4a_filepath: (-20.6, 0.1)})
+    for album_gain in (False, True):
+      ref = {self.vorbis_filepath: (-7.7, 2.6),
+             self.opus_filepath: (-14.7, None),
+             self.mp3_filepath: (-15.3, -0.1),
+             self.m4a_filepath: (-20.6, 0.1)}
+      if album_gain:
+        ref[0] = (-14.1, 2.6)
+      filepaths = (self.vorbis_filepath,
+                   self.opus_filepath,
+                   self.mp3_filepath,
+                   self.m4a_filepath)
+      self.assertEqual(r128gain.scan(filepaths,
+                                     album_gain=album_gain),
+                       ref)
+
+      if album_gain:
+        # file order should not changes results
+        for shuffled_filepaths in itertools.permutations(filepaths):
+          if shuffled_filepaths == filepaths:
+            continue
+          self.assertEqual(r128gain.scan(shuffled_filepaths,
+                                         album_gain=True),
+                           ref)
 
   def test_tag(self):
     loudness = -3.2
@@ -155,9 +171,9 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"], ["1.34896288"])
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-        self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"], ["%.2f dB" % (15.2 + ref_loudness)])
+        self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"], ["%.2f dB" % (14.1 + ref_loudness)])
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-        self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"], ["1.73780083"])
+        self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"], ["1.34896288"])
       else:
         self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
@@ -167,7 +183,7 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(mf["R128_TRACK_GAIN"], [str(r128gain.float_to_q7dot8(14.7 + ref_loudness))])
       if album_gain:
         self.assertIn("R128_ALBUM_GAIN", mf)
-        self.assertEqual(mf["R128_ALBUM_GAIN"], [str(r128gain.float_to_q7dot8(15.2+ ref_loudness))])
+        self.assertEqual(mf["R128_ALBUM_GAIN"], [str(r128gain.float_to_q7dot8(14.1+ ref_loudness))])
       else:
         self.assertNotIn("R128_ALBUM_GAIN", mf)
 
@@ -178,9 +194,9 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.988553"])
       if album_gain:
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-        self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text, ["%.2f dB" % (15.2 + ref_loudness)])
+        self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text, ["%.2f dB" % (14.1 + ref_loudness)])
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
-        self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text, ["1.737801"])
+        self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text, ["1.348963"])
       else:
         self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
@@ -198,11 +214,11 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(),
-                         "%.2f dB" % (15.2 + ref_loudness))
+                         "%.2f dB" % (14.1 + ref_loudness))
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"][0]).decode(),
-                         "1.737801")
+                         "1.348963")
       else:
         self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)

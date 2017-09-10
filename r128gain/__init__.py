@@ -40,8 +40,13 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   cmd.extend(("-map", "a"))
   if len(audio_filepaths) > 1:
     cmd.extend(("-filter_complex",
-                "concat=n=%u:v=0:a=1,ebur128=%s" % (len(audio_filepaths),
-                                                    ":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
+                "%s; "
+                "%sconcat=n=%u:v=0:a=1[ac]; "
+                "[ac]ebur128=%s" % ("; ".join(("[%u:a]aformat=sample_rates=48000:channel_layouts=stereo[a%u]" % (i, i)) for i in range(len(audio_filepaths))),
+                                    "".join(("[a%u]" % (i)) for i in range(len(audio_filepaths))),
+                                    len(audio_filepaths),
+                                    ":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
+
   else:
     cmd.extend(("-filter:a", "ebur128=%s" % (":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
   cmd.extend(("-f", "null", os.devnull))
@@ -71,12 +76,14 @@ def scan(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=No
 
   with concurrent.futures.ThreadPoolExecutor(max_workers=thread_count) as executor:
     futures = {}
+    calc_album_peak = False
     for audio_filepath in audio_filepaths:
       if os.path.splitext(audio_filepath)[-1].lower() == ".opus":
         # http://www.rfcreader.com/#rfc7845_line1060
         calc_peak = False
       else:
         calc_peak = True
+        calc_album_peak = True
       futures[audio_filepath] = executor.submit(get_r128_loudness,
                                                 (audio_filepath,),
                                                 calc_peak=calc_peak,
@@ -85,7 +92,7 @@ def scan(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=No
     if album_gain:
       futures[0] = executor.submit(get_r128_loudness,
                                    audio_filepaths,
-                                   calc_peak=calc_peak,
+                                   calc_peak=calc_album_peak,
                                    enable_ffmpeg_threading=enable_ffmpeg_threading,
                                    ffmpeg_path=ffmpeg_path)
 
