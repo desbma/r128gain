@@ -127,26 +127,8 @@ def tag(filepath, loudness, peak, *,
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
 
-  if isinstance(mf, (mutagen.oggvorbis.OggVorbis, mutagen.flac.FLAC)):
-    # https://wiki.xiph.org/VorbisComment#Replay_Gain
-    mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (ref_loudness - loudness)
-    # peak_dbfs = 20 * log10(max_sample) <=> max_sample = 10^(peak_dbfs / 20)
-    mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (10 ** (peak / 20))
-    if album_loudness is not None:
-      mf["REPLAYGAIN_ALBUM_GAIN"] = "%.2f dB" % (ref_loudness - album_loudness)
-      mf["REPLAYGAIN_ALBUM_PEAK"] = "%.8f" % (10 ** (album_peak / 20))
-
-  elif isinstance(mf, mutagen.oggopus.OggOpus):
-    # https://wiki.xiph.org/OggOpus#Comment_Header
-    q78 = float_to_q7dot8(ref_loudness - loudness)
-    assert(-32768 <= q78 <= 32767)
-    mf["R128_TRACK_GAIN"] = str(q78)
-    if album_loudness is not None:
-      q78 = float_to_q7dot8(ref_loudness - album_loudness)
-      assert(-32768 <= q78 <= 32767)
-      mf["R128_ALBUM_GAIN"] = str(q78)
-
-  elif isinstance(mf, mutagen.mp3.MP3):
+  if (isinstance(mf.tags, mutagen.id3.ID3) or
+      isinstance(mf, mutagen.id3.ID3FileType)):
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification#ID3v2
     mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                  desc="REPLAYGAIN_TRACK_GAIN",
@@ -165,7 +147,28 @@ def tag(filepath, loudness, peak, *,
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RGAD
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RVA2
 
-  elif isinstance(mf, mutagen.mp4.MP4):
+  elif isinstance(mf, mutagen.oggopus.OggOpus):
+    # https://wiki.xiph.org/OggOpus#Comment_Header
+    q78 = float_to_q7dot8(ref_loudness - loudness)
+    assert(-32768 <= q78 <= 32767)
+    mf["R128_TRACK_GAIN"] = str(q78)
+    if album_loudness is not None:
+      q78 = float_to_q7dot8(ref_loudness - album_loudness)
+      assert(-32768 <= q78 <= 32767)
+      mf["R128_ALBUM_GAIN"] = str(q78)
+
+  elif (isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)) or
+        isinstance(mf, (mutagen.ogg.OggFileType, mutagen.apev2.APEv2File))):
+    # https://wiki.xiph.org/VorbisComment#Replay_Gain
+    mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (ref_loudness - loudness)
+    # peak_dbfs = 20 * log10(max_sample) <=> max_sample = 10^(peak_dbfs / 20)
+    mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (10 ** (peak / 20))
+    if album_loudness is not None:
+      mf["REPLAYGAIN_ALBUM_GAIN"] = "%.2f dB" % (ref_loudness - album_loudness)
+      mf["REPLAYGAIN_ALBUM_PEAK"] = "%.8f" % (10 ** (album_peak / 20))
+
+  elif (isinstance(mf.tags, mutagen.mp4.MP4Tags) or
+        isinstance(mf, mutagen.mp4.MP4)):
     # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
     mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (ref_loudness - loudness)).encode())
     mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (peak / 20))).encode())
