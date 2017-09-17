@@ -10,6 +10,7 @@ Fast audio loudness scanner & tagger
 [![License](https://img.shields.io/github/license/desbma/r128gain.svg?style=flat)](https://github.com/desbma/r128gain/blob/master/LICENSE)
 
 r128gain is a multi platform command line tool to scan your audio files and tag them with loudness metadata (ReplayGain v2 or Opus R128 gain format), to allow playback of several tracks or albums at a similar loudness level.
+r128gain can also be used as a Python module from other Python projects to scan and/or tag audio files.
 
 **This is beta software, please test and report bugs.**
 
@@ -43,7 +44,10 @@ Run `r128gain -h` to get full command line reference.
 
 ### Examples
 
-* Scan all MP3 files in `music_directory`: `r128gain music_directory/*`
+* Scan a single file and display its loudness information: `r128gain -d an_audio_file.mp3`
+* Scan & tag a single file: `r128gain an_audio_file.mp3`
+* Scan & tag all audio files in `music_directory` and all its subdirectories: `r128gain -r music_directory`
+* Scan & tag all audio files in `music_directory` and all its subdirectories, and add ablum gain tags (files contained in each directory are considered as art of the same album): `r128gain -r -a music_directory`
 
 
 ## License
