@@ -194,6 +194,7 @@ def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path
 
   if report:
     # report
+    # TODO improve behavior on small terminals
     max_len = max(map(len, audio_filepaths))
     cols = ("Filepath", "Level (dBFS)", "Peak (dBFS)")
     print(cols[0].ljust(max_len), cols[1], cols[2], sep="  ")
