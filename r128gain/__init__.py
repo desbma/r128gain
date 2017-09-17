@@ -22,6 +22,8 @@ import r128gain.colored_logging as colored_logging
 
 
 AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "wv"))
+RG2_REF_R128_LOUDNESS_DBFS = -18
+OPUS_REF_R128_LOUDNESS_DBFS = -23
 
 
 def logger():
@@ -144,7 +146,7 @@ def float_to_q7dot8(f):
 
 
 def tag(filepath, loudness, peak, *,
-        album_loudness=None, album_peak=None, ref_loudness=-18):
+        album_loudness=None, album_peak=None):
   """ Tag audio file with loudness metadata. """
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
@@ -154,14 +156,14 @@ def tag(filepath, loudness, peak, *,
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification#ID3v2
     mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                  desc="REPLAYGAIN_TRACK_GAIN",
-                                 text="%.2f dB" % (ref_loudness - loudness)))
+                                 text="%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)))
     mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                  desc="REPLAYGAIN_TRACK_PEAK",
                                  text="%.6f" % (10 ** (peak / 20))))
     if album_loudness is not None:
       mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                    desc="REPLAYGAIN_ALBUM_GAIN",
-                                   text="%.2f dB" % (ref_loudness - album_loudness)))
+                                   text="%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)))
       mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                    desc="REPLAYGAIN_ALBUM_PEAK",
                                    text="%.6f" % (10 ** (album_peak / 20))))
@@ -171,31 +173,31 @@ def tag(filepath, loudness, peak, *,
 
   elif isinstance(mf, mutagen.oggopus.OggOpus):
     # https://wiki.xiph.org/OggOpus#Comment_Header
-    q78 = float_to_q7dot8(ref_loudness - loudness)
+    q78 = float_to_q7dot8(OPUS_REF_R128_LOUDNESS_DBFS - loudness)
     assert(-32768 <= q78 <= 32767)
     mf["R128_TRACK_GAIN"] = str(q78)
     if album_loudness is not None:
-      q78 = float_to_q7dot8(ref_loudness - album_loudness)
+      q78 = float_to_q7dot8(OPUS_REF_R128_LOUDNESS_DBFS - album_loudness)
       assert(-32768 <= q78 <= 32767)
       mf["R128_ALBUM_GAIN"] = str(q78)
 
   elif (isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)) or
         isinstance(mf, (mutagen.ogg.OggFileType, mutagen.apev2.APEv2File))):
     # https://wiki.xiph.org/VorbisComment#Replay_Gain
-    mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (ref_loudness - loudness)
+    mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)
     # peak_dbfs = 20 * log10(max_sample) <=> max_sample = 10^(peak_dbfs / 20)
     mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (10 ** (peak / 20))
     if album_loudness is not None:
-      mf["REPLAYGAIN_ALBUM_GAIN"] = "%.2f dB" % (ref_loudness - album_loudness)
+      mf["REPLAYGAIN_ALBUM_GAIN"] = "%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)
       mf["REPLAYGAIN_ALBUM_PEAK"] = "%.8f" % (10 ** (album_peak / 20))
 
   elif (isinstance(mf.tags, mutagen.mp4.MP4Tags) or
         isinstance(mf, mutagen.mp4.MP4)):
     # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
-    mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (ref_loudness - loudness)).encode())
+    mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)).encode())
     mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (peak / 20))).encode())
     if album_loudness is not None:
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (ref_loudness - album_loudness)).encode())
+      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)).encode())
       mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (album_peak / 20))).encode())
 
   else:
@@ -237,8 +239,7 @@ def show_scan_report(audio_filepaths, r128_data):
     logger().info("Album '%s': loudness = %s, peak = %s" % (album_dir, album_loudness, album_peak))
 
 
-def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=None, dry_run=False,
-            ref_loudness=-18, report=False):
+def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   # analyze files
   r128_data = scan(audio_filepaths,
                    album_gain=album_gain,
@@ -263,8 +264,7 @@ def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path
       continue
     try:
       tag(audio_filepath, loudness, peak,
-          album_loudness=album_loudness, album_peak=album_peak,
-          ref_loudness=ref_loudness)
+          album_loudness=album_loudness, album_peak=album_peak)
     except Exception as e:
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                          e.__class__.__qualname__,
@@ -272,7 +272,7 @@ def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path
 
 
 def process_recursive(directories, *, album_gain=False, thread_count=None, ffmpeg_path=None, dry_run=False,
-                      ref_loudness=-18, report=False):
+                      report=False):
   if thread_count is None:
     thread_count = len(os.sched_getaffinity(0))
 
@@ -330,8 +330,7 @@ def process_recursive(directories, *, album_gain=False, thread_count=None, ffmpe
                 continue
               try:
                 tag(audio_filepath, loudness, peak,
-                    album_loudness=album_loudness, album_peak=album_peak,
-                    ref_loudness=ref_loudness)
+                    album_loudness=album_loudness, album_peak=album_peak)
               except Exception as e:
                 logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                                    e.__class__.__qualname__,
@@ -382,12 +381,6 @@ def cl_main():
                           action="store_true",
                           default=False,
                           help="Do not write any tags, only show scan results")
-  arg_parser.add_argument("-l",
-                          "--reference-loudness",
-                          type=int,
-                          default=-18,
-                          help="""Reference loudness level in dBFS.
-                                  WARNING: Do not change unless you know what you are doing""")
   arg_parser.add_argument("-v",
                           "--verbosity",
                           choices=("warning", "normal", "debug"),
@@ -418,7 +411,6 @@ def cl_main():
                         thread_count=args.thread_count,
                         ffmpeg_path=args.ffmpeg_path,
                         dry_run=args.dry_run,
-                        ref_loudness=args.reference_loudness,
                         report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
     else:
       process(args.path,
@@ -426,7 +418,6 @@ def cl_main():
               thread_count=args.thread_count,
               ffmpeg_path=args.ffmpeg_path,
               dry_run=args.dry_run,
-              ref_loudness=args.reference_loudness,
               report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
   except RuntimeError as e:
     logging.getLogger().error(e)
