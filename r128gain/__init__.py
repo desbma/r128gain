@@ -205,6 +205,37 @@ def tag(filepath, loudness, peak, *,
   mf.save()
 
 
+def show_scan_report(audio_filepaths, r128_data):
+  """ Display loudness scan results. """
+  # track loudness/peak
+  for audio_filepath in audio_filepaths:
+    try:
+      loudness, peak = r128_data[audio_filepath]
+    except KeyError:
+      loudness, peak = "ERR", "ERR"
+    else:
+      loudness = "%.1f dbFS" % (loudness)
+      if peak is None:
+        peak = "-"
+      else:
+        peak = "%.1f dbFS" % (peak)
+    logger().info("File '%s': loudness = %s, peak = %s" % (audio_filepath, loudness, peak))
+
+  # album loudness/peak
+  try:
+    album_loudness, album_peak = r128_data[0]
+  except KeyError:
+    pass
+  else:
+    album_loudness = "%.1f dbFS" % (album_loudness)
+    if album_peak is None:
+      album_peak = "-"
+    else:
+      album_peak = "%.1f dbFS" % (album_peak)
+    album_dir = os.path.dirname(audio_filepaths[0])
+    logger().info("Album '%s': loudness = %s, peak = %s" % (album_dir, album_loudness, album_peak))
+
+
 def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=None, dry_run=False,
             ref_loudness=-18, report=False):
   # analyze files
@@ -214,21 +245,7 @@ def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path
                    ffmpeg_path=ffmpeg_path)
 
   if report:
-    # report
-    # TODO improve behavior on small terminals
-    max_len = max(map(len, audio_filepaths))
-    cols = ("Filepath", "Level (dBFS)", "Peak (dBFS)")
-    print(cols[0].ljust(max_len), cols[1], cols[2], sep="  ")
-    for audio_filepath in audio_filepaths:
-      try:
-        loudness, peak = r128_data[audio_filepath]
-      except KeyError:
-        loudness, peak = "ERR", "ERR"
-      else:
-        if peak is None:
-          peak = "-"
-        loudness, peak = map(str, (loudness, peak))
-      print(audio_filepath.ljust(max_len), loudness.ljust(len(cols[1])), peak, sep="  ")
+    show_scan_report(audio_filepaths, r128_data)
 
   if dry_run:
     return
@@ -297,24 +314,7 @@ def process_recursive(directories, *, album_gain=False, thread_count=None, ffmpe
                                                                          e))
 
           if report:
-            # report
-            # TODO factorize
-            # TODO improve behavior on small terminals
-            # TODO use logger
-            # TODO show album gain
-            max_len = max(map(len, audio_filepaths))
-            cols = ("Filepath", "Level (dBFS)", "Peak (dBFS)")
-            print(cols[0].ljust(max_len), cols[1], cols[2], sep="  ")
-            for audio_filepath in audio_filepaths:
-              try:
-                loudness, peak = r128_data[audio_filepath]
-              except KeyError:
-                loudness, peak = "ERR", "ERR"
-              else:
-                if peak is None:
-                  peak = "-"
-                loudness, peak = map(str, (loudness, peak))
-              print(audio_filepath.ljust(max_len), loudness.ljust(len(cols[1])), peak, sep="  ")
+            show_scan_report(audio_filepaths, r128_data)
 
           if not dry_run:
             # tag
