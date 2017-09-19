@@ -4,7 +4,7 @@
 
 __version__ = "0.5.0"
 __author__ = "desbma"
-__license__ = "GPLv3"
+__license__ = "LGPLv2"
 
 import argparse
 import concurrent.futures
