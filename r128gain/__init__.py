@@ -24,6 +24,7 @@ import r128gain.colored_logging as colored_logging
 AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "wv"))
 RG2_REF_R128_LOUDNESS_DBFS = -18
 OPUS_REF_R128_LOUDNESS_DBFS = -23
+ALBUM_GAIN_KEY = 0
 
 
 def logger():
@@ -111,11 +112,11 @@ def scan(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=No
                                                 enable_ffmpeg_threading=enable_ffmpeg_threading,
                                                 ffmpeg_path=ffmpeg_path)
     if album_gain:
-      futures[0] = executor.submit(get_r128_loudness,
-                                   audio_filepaths,
-                                   calc_peak=calc_album_peak,
-                                   enable_ffmpeg_threading=enable_ffmpeg_threading,
-                                   ffmpeg_path=ffmpeg_path)
+      futures[ALBUM_GAIN_KEY] = executor.submit(get_r128_loudness,
+                                                audio_filepaths,
+                                                calc_peak=calc_album_peak,
+                                                enable_ffmpeg_threading=enable_ffmpeg_threading,
+                                                ffmpeg_path=ffmpeg_path)
 
     if async:
       return futures
@@ -130,7 +131,7 @@ def scan(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=No
                                                                  e))
     if album_gain:
       try:
-        r128_data[0] = futures[0].result()
+        r128_data[ALBUM_GAIN_KEY] = futures[ALBUM_GAIN_KEY].result()
       except Exception as e:
         # raise
         logger().warning("Failed to analyze files %s: %s %s" % (", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths),
@@ -226,7 +227,7 @@ def show_scan_report(audio_filepaths, r128_data):
 
   # album loudness/peak
   try:
-    album_loudness, album_peak = r128_data[0]
+    album_loudness, album_peak = r128_data[ALBUM_GAIN_KEY]
   except KeyError:
     pass
   else:
@@ -254,7 +255,7 @@ def process(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path
 
   # tag
   if album_gain:
-    album_loudness, album_peak = r128_data[0]
+    album_loudness, album_peak = r128_data[ALBUM_GAIN_KEY]
   else:
     album_loudness, album_peak = None, None
   for audio_filepath in audio_filepaths:
@@ -320,7 +321,7 @@ def process_recursive(directories, *, album_gain=False, thread_count=None, ffmpe
           if not dry_run:
             # tag
             if album_gain:
-              album_loudness, album_peak = r128_data[0]
+              album_loudness, album_peak = r128_data[ALBUM_GAIN_KEY]
             else:
               album_loudness, album_peak = None, None
             for audio_filepath in audio_filepaths:

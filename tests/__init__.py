@@ -114,7 +114,7 @@ class TestR128Gain(unittest.TestCase):
                    self.wv_filepath)
       ref_levels = self.ref_levels.copy()
       if not album_gain:
-        del ref_levels[0]
+        del ref_levels[r128gain.ALBUM_GAIN_KEY]
       self.assertEqual(r128gain.scan(filepaths,
                                      album_gain=album_gain),
                        ref_levels)
@@ -263,7 +263,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0])])
+                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
                          ["%.8f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20))])
@@ -279,7 +279,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("R128_ALBUM_GAIN", mf)
         self.assertEqual(mf["R128_ALBUM_GAIN"],
-                         [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[0][0]))])
+                         [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))])
       else:
         self.assertNotIn("R128_ALBUM_GAIN", mf)
 
@@ -293,7 +293,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
-                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0])])
+                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
                          ["%.6f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20))])
@@ -315,7 +315,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(),
-                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0]))
+                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"][0]).decode(),
@@ -334,7 +334,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0])])
+                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
                          ["%.8f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20))])
@@ -352,7 +352,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
-                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0]))
+                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
                          "%.8f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20)))
@@ -416,7 +416,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0])])
+                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
                          ["%.8f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20))])
@@ -432,7 +432,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("R128_ALBUM_GAIN", mf)
         self.assertEqual(mf["R128_ALBUM_GAIN"],
-                         [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[0][0]))])
+                         [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))])
       else:
         self.assertNotIn("R128_ALBUM_GAIN", mf)
 
@@ -446,7 +446,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
-                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0])])
+                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
         self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
                          ["%.6f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20))])
@@ -468,7 +468,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(),
-                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0]))
+                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
         self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"]), 1)
         self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"][0]).decode(),
@@ -487,7 +487,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0])])
+                         ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
                          ["%.8f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20))])
@@ -505,7 +505,7 @@ class TestR128Gain(unittest.TestCase):
       if album_gain:
         self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
         self.assertEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
-                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[0][0]))
+                         "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
         self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
         self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
                          "%.8f" % (10 ** (self.ref_levels[self.max_peak_filepath][1] / 20)))
