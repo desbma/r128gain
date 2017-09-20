@@ -27,6 +27,10 @@ r128gain can also be used as a Python module from other Python projects to scan 
 
 r128gain requires [Python](https://www.python.org/downloads/) >= 3.4 and [FFmpeg](https://www.ffmpeg.org/download.html) >= 2.8.
 
+### Arch Linux
+
+Arch Linux users can install the [r128gain](https://aur.archlinux.org/packages/r128gain/) AUR package.
+
 ### From PyPI (with PIP)
 
 Install r128gain using [pip](http://www.pip-installer.org/en/latest/installing.html): `pip3 install r128gain`
