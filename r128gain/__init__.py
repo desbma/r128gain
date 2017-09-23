@@ -98,23 +98,23 @@ def scan(audio_filepaths, *, album_gain=False, thread_count=None, ffmpeg_path=No
       async = True
 
     futures = {}
-    calc_album_peak = False
+    if album_gain:
+      calc_album_peak = any(map(lambda x: os.path.splitext(x)[-1].lower() != ".opus",
+                                audio_filepaths))
+      futures[ALBUM_GAIN_KEY] = executor.submit(get_r128_loudness,
+                                                audio_filepaths,
+                                                calc_peak=calc_album_peak,
+                                                enable_ffmpeg_threading=enable_ffmpeg_threading,
+                                                ffmpeg_path=ffmpeg_path)
     for audio_filepath in audio_filepaths:
       if os.path.splitext(audio_filepath)[-1].lower() == ".opus":
         # http://www.rfcreader.com/#rfc7845_line1060
         calc_peak = False
       else:
         calc_peak = True
-        calc_album_peak = True
       futures[audio_filepath] = executor.submit(get_r128_loudness,
                                                 (audio_filepath,),
                                                 calc_peak=calc_peak,
-                                                enable_ffmpeg_threading=enable_ffmpeg_threading,
-                                                ffmpeg_path=ffmpeg_path)
-    if album_gain:
-      futures[ALBUM_GAIN_KEY] = executor.submit(get_r128_loudness,
-                                                audio_filepaths,
-                                                calc_peak=calc_album_peak,
                                                 enable_ffmpeg_threading=enable_ffmpeg_threading,
                                                 ffmpeg_path=ffmpeg_path)
 
