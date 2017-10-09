@@ -32,6 +32,7 @@ matrix:
     - python: "3.5-dev"
     - python: "3.6-dev"
     - python: "3.7-dev"
+    - python: "pypy3"
   fast_finish: true
 addons:
   apt:
