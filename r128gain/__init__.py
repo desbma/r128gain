@@ -209,6 +209,37 @@ def tag(filepath, loudness, peak, *,
   mf.save()
 
 
+def has_loudness_tag(filepath):
+  """ Return a pair of booleans indicating if filepath has a RG or R128 track/album tag. """
+  track, album = False, False
+
+  mf = mutagen.File(filepath)
+
+  if (isinstance(mf.tags, mutagen.id3.ID3) or
+          isinstance(mf, mutagen.id3.ID3FileType)):
+    track = ("TXXX:REPLAYGAIN_TRACK_GAIN" in mf) and ("TXXX:REPLAYGAIN_TRACK_PEAK" in mf)
+    album = ("TXXX:REPLAYGAIN_ALBUM_GAIN" in mf) and ("TXXX:REPLAYGAIN_ALBUM_PEAK" in mf)
+
+  elif isinstance(mf, mutagen.oggopus.OggOpus):
+    track = "R128_TRACK_GAIN" in mf
+    album = "R128_ALBUM_GAIN" in mf
+
+  elif (isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)) or
+        isinstance(mf, (mutagen.ogg.OggFileType, mutagen.apev2.APEv2File))):
+    track = ("REPLAYGAIN_TRACK_GAIN" in mf) and ("REPLAYGAIN_TRACK_PEAK" in mf)
+    album = ("REPLAYGAIN_ALBUM_GAIN" in mf) and ("REPLAYGAIN_ALBUM_PEAK" in mf)
+
+  elif (isinstance(mf.tags, mutagen.mp4.MP4Tags) or
+        isinstance(mf, mutagen.mp4.MP4)):
+    track = ("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN" in mf) and ("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK" in mf)
+    album = ("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN" in mf) and ("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK" in mf)
+
+  else:
+    logger().warning("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
+                                                                  filepath))
+  return track, album
+
+
 def show_scan_report(audio_filepaths, r128_data):
   """ Display loudness scan results. """
   # track loudness/peak

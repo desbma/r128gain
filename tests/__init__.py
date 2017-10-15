@@ -158,9 +158,11 @@ class TestR128Gain(unittest.TestCase):
                        self.m4a_filepath,
                        self.flac_filepath,
                        self.wv_filepath):
+            self.assertEqual(r128gain.has_loudness_tag(file), (True, False))
             mf = mutagen.File(file)
             mf.delete()
             mf.save()
+            self.assertEqual(r128gain.has_loudness_tag(file), (False, False))
 
         if delete_tags:
           mf = mutagen.File(self.vorbis_filepath)
@@ -239,9 +241,25 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
         self.assertEqual(str(mf["REPLAYGAIN_TRACK_PEAK"]), "%.8f" % (expected_track_peak_rg2))
 
+        for file in (self.vorbis_filepath,
+                     self.opus_filepath,
+                     self.mp3_filepath,
+                     self.m4a_filepath,
+                     self.flac_filepath,
+                     self.wv_filepath):
+          self.assertEqual(r128gain.has_loudness_tag(file), (True, False))
+
   def test_process(self):
     ref_loudness_rg2 = -18
     ref_loudness_opus = -23
+
+    for file in (self.vorbis_filepath,
+                 self.opus_filepath,
+                 self.mp3_filepath,
+                 self.m4a_filepath,
+                 self.flac_filepath,
+                 self.wv_filepath):
+      self.assertEqual(r128gain.has_loudness_tag(file), (False, False))
 
     for album_gain in (False, True):
       r128gain.process((self.vorbis_filepath,
@@ -251,6 +269,14 @@ class TestR128Gain(unittest.TestCase):
                         self.flac_filepath,
                         self.wv_filepath),
                        album_gain=album_gain)
+
+      for file in (self.vorbis_filepath,
+                   self.opus_filepath,
+                   self.mp3_filepath,
+                   self.m4a_filepath,
+                   self.flac_filepath,
+                   self.wv_filepath):
+        self.assertEqual(r128gain.has_loudness_tag(file), (True, album_gain))
 
       mf = mutagen.File(self.vorbis_filepath)
       self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
