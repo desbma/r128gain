@@ -153,7 +153,7 @@ def tag(filepath, loudness, peak, *,
   mf = mutagen.File(filepath)
 
   if (isinstance(mf.tags, mutagen.id3.ID3) or
-      isinstance(mf, mutagen.id3.ID3FileType)):
+          isinstance(mf, mutagen.id3.ID3FileType)):
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification#ID3v2
     mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                  desc="REPLAYGAIN_TRACK_GAIN",
