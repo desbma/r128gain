@@ -26,6 +26,7 @@ env:
     - FFMPEG_VERSION=3.1
     - FFMPEG_VERSION=3.2
     - FFMPEG_VERSION=3.3
+    - FFMPEG_VERSION=3.4
     - FFMPEG_VERSION=master
 matrix:
   allow_failures:
