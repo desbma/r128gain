@@ -424,6 +424,9 @@ class TestR128Gain(unittest.TestCase):
     album2_m4a_filepath = os.path.join(album_dir2,
                                        os.path.basename(self.m4a_filepath))
     shutil.copyfile(self.m4a_filepath, album2_m4a_filepath)
+    album2_dummy_filepath = os.path.join(album_dir2, "dummy.txt")
+    with open(album2_dummy_filepath, "wb") as f:
+      f.write(b"\x00")
 
     ref_levels_dir1 = (-13, 2.6)
     ref_levels_dir2 = (-15.7, -0.1)
@@ -433,7 +436,8 @@ class TestR128Gain(unittest.TestCase):
     # │   ├── f.ogg
     # │   └── f.opus
     # ├── b
-    # │   ├── f.m4a
+    # │   ├── dummy.txt
+    # │   ├── f.m4a
     # │   └── f.mp3
     # ├── f.flac
     # ├── f.m4a
