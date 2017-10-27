@@ -346,31 +346,29 @@ def process_recursive(directories, *, album_gain=False, skip_tagged=False, threa
                                     filter(is_audio_filepath,
                                            filepaths)))
         if audio_filepaths:
-          dir_futures[root_dir] = scan(audio_filepaths,
-                                       album_gain=album_gain,
-                                       skip_tagged=skip_tagged,
-                                       ffmpeg_path=ffmpeg_path,
-                                       executor=executor)
+          dir_futures[(root_dir, audio_filepaths)] = scan(audio_filepaths,
+                                                          album_gain=album_gain,
+                                                          skip_tagged=skip_tagged,
+                                                          ffmpeg_path=ffmpeg_path,
+                                                          executor=executor)
 
     # get results
     while dir_futures:
       to_del = None
-      for directory, current_dir_futures in dir_futures.items():
+      for (directory, audio_filepaths), current_dir_futures in dir_futures.items():
         done, not_done = concurrent.futures.wait(current_dir_futures.values(),
                                                  timeout=0)
         if not not_done:
           # get analysis results for this directory
           r128_data = {}
-          audio_filepaths = tuple(filter(lambda x: isinstance(x, str),
-                                         current_dir_futures.keys()))
-          for key, future in current_dir_futures.items():
+          for key in audio_filepaths + (ALBUM_GAIN_KEY,):
             try:
-              r128_data[key] = future.result()
+              r128_data[key] = current_dir_futures[key].result()
             except KeyError:
               # file/abum gain was skipped
               continue
             except Exception as e:
-              if album_gain and (key == 0):
+              if album_gain and (key == ALBUM_GAIN_KEY):
                 logger().warning("Failed to analyze files %s: %s %s" % (", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths),
                                                                         e.__class__.__qualname__,
                                                                         e))
@@ -386,15 +384,19 @@ def process_recursive(directories, *, album_gain=False, skip_tagged=False, threa
 
           if not dry_run:
             # tag
-            if album_gain:
+            try:
               album_loudness, album_peak = r128_data[ALBUM_GAIN_KEY]
-            else:
+            except KeyError:
               album_loudness, album_peak = None, None
             for audio_filepath in audio_filepaths:
               try:
                 loudness, peak = r128_data[audio_filepath]
               except KeyError:
-                continue
+                if album_loudness is None:
+                  # file was skipped
+                  continue
+                else:
+                  loudness, peak = None, None
               try:
                 tag(audio_filepath, loudness, peak,
                     album_loudness=album_loudness, album_peak=album_peak)
@@ -404,7 +406,7 @@ def process_recursive(directories, *, album_gain=False, skip_tagged=False, threa
                                                                    e))
 
           # we are done with this directory
-          to_del = directory
+          to_del = (directory, audio_filepaths)
           break
 
       if to_del is not None:
