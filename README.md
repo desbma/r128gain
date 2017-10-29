@@ -34,7 +34,7 @@ Arch Linux users can install the [r128gain](https://aur.archlinux.org/packages/r
 
 ### From PyPI (with PIP)
 
-Install r128gain using [pip](http://www.pip-installer.org/en/latest/installing.html): `pip3 install r128gain`
+Install r128gain using [pip](https://pip.pypa.io/en/stable/installing/): `pip3 install r128gain`
 
 ### From source
 
