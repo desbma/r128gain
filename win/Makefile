@@ -1,4 +1,6 @@
-WINEARCH ?= win32
+WINEARCH          ?= win32
+FFMPEG_VERSION    ?= 3.4
+FFMPEG_CACHE_DIR  ?= ${HOME}/FFmpeg-${WINEARCH}
 
 # versions
 PYTHON_VERSION       := 3.4.4
@@ -46,10 +48,10 @@ print-%:
 # End targets
 #
 
-r128gain_${WINEARCH}.7z: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll
+r128gain_${WINEARCH}.7z: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe
 	7z a -t7z -mx9 $@ ${OUTPUT_DIR} > /dev/null
 
-r128gain_${WINEARCH}.zip: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll
+r128gain_${WINEARCH}.zip: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe
 	7z a -tzip -mx9 $@ ${OUTPUT_DIR} > /dev/null
 
 r128gain_${WINEARCH}.exe: ${7ZIP_INSTALLED} r128gain_${WINEARCH}.7z
@@ -77,6 +79,9 @@ ${OUTPUT_DIR}/readme.txt:
 	mkdir -p $(dir $@)
 	echo 'Get source, help and latest version at: https://github.com/desbma/r128gain' > $@
 
+${OUTPUT_DIR}/ffmpeg.exe:
+	mkdir -p $(dir $@)
+	./build-minimal-ffpmeg ${FFMPEG_VERSION} ${FFMPEG_CACHE_DIR} ${WINEARCH} $@
 
 #
 # Tests
