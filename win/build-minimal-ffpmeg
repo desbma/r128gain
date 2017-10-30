@@ -4,31 +4,46 @@ set -o pipefail
 
 readonly FFMPEG_VERSION=${1:?}
 readonly BUILD_DIR=${2:-$HOME/FFmpeg}
-readonly OUTPUT_FILE=${3:-ffmpeg.exe}
+readonly ARCH=${3:-win32}
+readonly OUTPUT_FILE=${4:-ffmpeg.exe}
 readonly PROC_COUNT=$(grep -c '^processor' /proc/cpuinfo)
 
 
 configure() {
-  # TODO enable ALL audio decoders & demuxers
-  ./configure --enable-gpl \
+  if [ $ARCH = "win32" ]
+  then
+    arch_params="--arch=x86 --target-os=mingw32 --cross-prefix=i686-w64-mingw32-"
+  elif [ $ARCH = "win64" ]
+  then
+    arch_params="--arch=x86 --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32-"
+  else
+    echo 'Invalid arch' >&2
+    exit 1
+  fi
+  ./configure $arch_params \
+              --enable-gpl \
               --enable-version3 \
-              --enable-nonfree \
               --enable-static \
               --disable-shared \
               --disable-autodetect \
               --disable-programs \
               --enable-ffmpeg \
               --disable-doc \
-              --disable-everything \
+              --disable-encoders \
               --enable-encoder=pcm_s16le \
-              --enable-decoder=vorbis \
-              --enable-decoder=opus \
-              --enable-decoder=mp3 \
-              --enable-decoder=aac \
-              --enable-decoder=mpc \
-              --enable-decoder=flac \
-              --enable-decoder=wavpack \
+              --disable-decoders \
+              $(ffmpeg -hide_banner -codecs | grep '^ D.A' | cut -d ' ' -f 3 | xargs -I'{}' echo --enable-decoder={}) \
+              --disable-hwaccels \
+              --disable-muxers \
+              --enable-muxer=null \
+              --disable-parsers \
+              --disable-bsfs \
+              --disable-protocols \
               --enable-protocol=file \
+              --disable-devices \
+              --disable-filters \
+              --enable-filter=aresample \
+              --enable-filter=concat \
               --enable-filter=ebur128 \
               --disable-debug
 }
@@ -73,5 +88,4 @@ fi
 # build
 make -j $PROC_COUNT
 
-# test
-$repo_dir/ffmpeg -hide_banner -nostats -i /tmp/*.ogg -i /tmp/*.opus -i /tmp/*.mp3 -i /tmp/*.m4a -filter_complex '[0]afifo[a1],[1]afifo[a2],[2]afifo[a3],[3]afifo[a4],[a1][a2][a3][a4]concat=n=4:v=0:a=1,ebur128=framelog=verbose:peak=true' -f null /dev/null
+cp "$repo_dir/ffmpeg.exe" "$OUTPUT_FILE"
