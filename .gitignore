@@ -4,3 +4,5 @@ __pycache__
 /dist
 /win/*
 !/win/Makefile
+!/win/*.patch
+!/win/build-*
