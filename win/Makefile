@@ -7,6 +7,7 @@ PYTHON_VERSION       := 3.4.4
 PYTHON_VERSION_MAJOR := $(word 1,$(subst ., ,${PYTHON_VERSION})).$(word 2,$(subst ., ,${PYTHON_VERSION}))
 PYTHON_VERSION_SHORT := $(subst .,,${PYTHON_VERSION_MAJOR})
 CXFREEZE_VERSION     := 5.0.2
+SOX_VERSION          := 14.4.2
 
 # installers
 DOWNLOAD_DIR            ?= dl
@@ -17,17 +18,21 @@ CXFREEZE_WHEEL-win32    := ${DOWNLOAD_DIR}/cx_Freeze-${CXFREEZE_VERSION}-cp${PYT
 CXFREEZE_WHEEL-win64    := ${DOWNLOAD_DIR}/cx_Freeze-${CXFREEZE_VERSION}-cp${PYTHON_VERSION_SHORT}-cp${PYTHON_VERSION_SHORT}m-win_amd64.whl
 CXFREEZE_WHEEL          := ${CXFREEZE_WHEEL-${WINEARCH}}
 7ZIP_INSTALLER          := ${DOWNLOAD_DIR}/7z938.msi
+SOX_ZIP                 := ${DOWNLOAD_DIR}/sox-${SOX_VERSION}-win32.zip
 
 # env
 CURL     := curl -s -f -L -m 600 --connect-timeout 30 --retry 10 --retry-max-time 5
 WINE_DIR := /tmp/$(subst /,_,${CURDIR})/wine-${WINEARCH}
 WINE     := mkdir -p $(dir ${WINE_DIR}) && WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDEBUG=-all wine
+UNZIP    := unzip -o -q -DD
 
 # installed files
 PYTHON_INSTALLED   := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/python.exe
 CXFREEZE_INSTALLED := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Scripts/cxfreeze
 PIP_INSTALLED      := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Scripts/pip.exe
 7ZIP_INSTALLED     := ${WINE_DIR}/drive_c/7-Zip/7z.sfx
+SOX_INSTALLED      := ${WINE_DIR}/drive_c/windows/system32/sox.exe
+FFMPEG_INSTALLED   := ${WINE_DIR}/drive_c/windows/system32/ffmpeg.exe
 
 # temp dirs
 OUTPUT_DIR   := r128gain-${WINEARCH}
@@ -79,16 +84,19 @@ ${OUTPUT_DIR}/readme.txt:
 	mkdir -p $(dir $@)
 	echo 'Get source, help and latest version at: https://github.com/desbma/r128gain' > $@
 
-${OUTPUT_DIR}/ffmpeg.exe:
+${OUTPUT_DIR}/ffmpeg.exe: ${FFMPEG_INSTALLED}
 	mkdir -p $(dir $@)
-	./build-minimal-ffpmeg ${FFMPEG_VERSION} ${FFMPEG_CACHE_DIR} ${WINEARCH} $@
+	cp $< $@
+
 
 #
 # Tests
 #
 
-test_ut: ${LXML_INSTALLED} .requirements
+test_ut: ${LXML_INSTALLED} .requirements ${FFMPEG_INSTALLED} ${SOX_INSTALLED}
 	cd .. && ${WINE} ${PYTHON_INSTALLED} setup.py test
+
+# TODO test freeze
 
 
 #
@@ -116,6 +124,16 @@ ${7ZIP_INSTALLED}: ${7ZIP_INSTALLER}
 	${WINE} msiexec /i $< /qb INSTALLDIR='c:\7-Zip'
 	touch $@
 
+${FFMPEG_INSTALLED}:
+	mkdir -p $(dir $@)
+	./build-minimal-ffpmeg ${FFMPEG_VERSION} ${FFMPEG_CACHE_DIR} ${WINEARCH} $@
+
+${SOX_INSTALLED}: ${SOX_ZIP}
+	mkdir -p ${WINE_DIR}/drive_c
+	${UNZIP} $< -d ${WINE_DIR}/drive_c
+	cp ${WINE_DIR}/drive_c/sox-${SOX_VERSION}/*.dll $(dir $@)
+	cp ${WINE_DIR}/drive_c/sox-${SOX_VERSION}/sox.exe $@
+
 
 #
 # Downloads
@@ -137,6 +155,10 @@ ${7ZIP_INSTALLER}:
 	mkdir -p $(dir $@)
 	${CURL} http://www.7-zip.org/a/$(notdir $@) > $@.unckecked
 	echo "673377a03f91ff0f7f384794934b767c3389e50d7dc308f7c73f4633121518b3e4af8d33cf282398a710577e12fbb963152591c3e29b1092c79530bb2d8aa882  $@.unckecked" | sha512sum --status -c - && mv $@.unckecked $@
+
+${SOX_ZIP}:
+	mkdir -p $(dir $@)
+	${CURL} https://sourceforge.net/projects/sox/files/sox/${SOX_VERSION}/$(notdir $@) > $@
 
 
 #

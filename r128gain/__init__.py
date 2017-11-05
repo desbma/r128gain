@@ -10,11 +10,13 @@ import argparse
 import concurrent.futures
 import contextlib
 import functools
+import inspect
 import logging
 import operator
 import os
 import shutil
 import subprocess
+import sys
 import time
 
 import mutagen
@@ -90,7 +92,10 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
   with contextlib.ExitStack() as cm:
     if executor is None:
       if thread_count is None:
-        thread_count = len(os.sched_getaffinity(0))
+        try:
+          thread_count = len(os.sched_getaffinity(0))
+        except AttributeError:
+          thread_count = os.cpu_count()
       enable_ffmpeg_threading = thread_count > (len(audio_filepaths) + int(album_gain))
       executor = cm.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=thread_count))
       async = False
@@ -337,7 +342,10 @@ def process(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_coun
 def process_recursive(directories, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None,
                       dry_run=False, report=False):
   if thread_count is None:
-    thread_count = len(os.sched_getaffinity(0))
+    try:
+      thread_count = len(os.sched_getaffinity(0))
+    except AttributeError:
+      thread_count = os.cpu_count()
 
   dir_futures = {}
   with concurrent.futures.ThreadPoolExecutor(max_workers=thread_count) as executor:
