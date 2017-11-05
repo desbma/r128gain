@@ -168,6 +168,8 @@ def tag(filepath, loudness, peak, *,
 
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
+  if (mf is not None) and (mf.tags is None):
+    mf.add_tags()
 
   if (isinstance(mf.tags, mutagen.id3.ID3) or
           isinstance(mf, mutagen.id3.ID3FileType)):
