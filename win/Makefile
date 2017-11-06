@@ -33,8 +33,13 @@ PIP_INSTALLED        := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Script
 7ZIP_INSTALLED       := ${WINE_DIR}/drive_c/7-Zip/7z.sfx
 SOX_INSTALLED        := ${WINE_DIR}/drive_c/windows/system32/sox.exe
 FFMPEG_INSTALLED     := ${WINE_DIR}/drive_c/windows/system32/ffmpeg.exe
+ifeq ($(shell lsb_release -si),Ubuntu)
+WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/lib/libwinpthread-1.dll
+WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll
+else
 WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/bin/libwinpthread-1.dll
 WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll
+endif
 WINPTHREAD_DLL       := ${WINPTHREAD_DLL_${WINEARCH}}
 
 # temp dirs
@@ -182,7 +187,7 @@ ${DOWNLOAD_DIR}/sample.ogg:
 fclean:
 	-rm -Rf ${WINE_DIR}
 	-rm -Rf ${OUTPUT_DIR} .requirements
-	-rm -f r128gain_${WINEARCH}.7z r128gain_${WINEARCH}.zip r128gain_${WINEARCH}.exe
+	-rm -f r128gain_${WINEARCH}.7z r128gain_${WINEARCH}.zip r128gain_${WINEARCH}.exe sample.ogg
 
 clean: fclean
 	-rm -Rf ${DOWNLOAD_DIR}
