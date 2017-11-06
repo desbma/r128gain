@@ -72,9 +72,8 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   logger().debug(subprocess.list2cmdline(cmd))
   output = subprocess.check_output(cmd,
                                    stdin=subprocess.DEVNULL,
-                                   stderr=subprocess.STDOUT,
-                                   universal_newlines=True)
-  output = output.splitlines()
+                                   stderr=subprocess.STDOUT)
+  output = output.decode("utf-8", errors="replace").splitlines()
   for i in reversed(range(len(output))):
     line = output[i]
     if line.startswith("[Parsed_ebur128") and line.endswith("Summary:"):
