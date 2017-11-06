@@ -27,23 +27,26 @@ WINE     := mkdir -p $(dir ${WINE_DIR}) && WINEPREFIX=${WINE_DIR} WINEARCH=${WIN
 UNZIP    := unzip -o -q -DD
 
 # installed files
-PYTHON_INSTALLED   := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/python.exe
-CXFREEZE_INSTALLED := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Scripts/cxfreeze
-PIP_INSTALLED      := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Scripts/pip.exe
-7ZIP_INSTALLED     := ${WINE_DIR}/drive_c/7-Zip/7z.sfx
-SOX_INSTALLED      := ${WINE_DIR}/drive_c/windows/system32/sox.exe
-FFMPEG_INSTALLED   := ${WINE_DIR}/drive_c/windows/system32/ffmpeg.exe
+PYTHON_INSTALLED     := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/python.exe
+CXFREEZE_INSTALLED   := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Scripts/cxfreeze
+PIP_INSTALLED        := ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Scripts/pip.exe
+7ZIP_INSTALLED       := ${WINE_DIR}/drive_c/7-Zip/7z.sfx
+SOX_INSTALLED        := ${WINE_DIR}/drive_c/windows/system32/sox.exe
+FFMPEG_INSTALLED     := ${WINE_DIR}/drive_c/windows/system32/ffmpeg.exe
+WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/bin/libwinpthread-1.dll
+WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll
+WINPTHREAD_DLL       := ${WINPTHREAD_DLL_${WINEARCH}}
 
 # temp dirs
 OUTPUT_DIR   := r128gain-${WINEARCH}
 
 
-.PHONY: all test test_ut fclean clean
+.PHONY: all test test_ut test_freeze fclean clean
 
 
 all:: r128gain_${WINEARCH}.7z r128gain_${WINEARCH}.zip r128gain_${WINEARCH}.exe
 
-test:: test_ut
+test:: test_ut test_freeze
 
 print-%:
 	@echo $*=$($*)
@@ -53,7 +56,7 @@ print-%:
 # End targets
 #
 
-r128gain_${WINEARCH}.7z: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe
+r128gain_${WINEARCH}.7z: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe ${OUTPUT_DIR}/libwinpthread-1.dll
 	7z a -t7z -mx9 $@ ${OUTPUT_DIR} > /dev/null
 
 r128gain_${WINEARCH}.zip: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/LICENSE ${OUTPUT_DIR}/readme.txt ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe
@@ -88,6 +91,10 @@ ${OUTPUT_DIR}/ffmpeg.exe: ${FFMPEG_INSTALLED}
 	mkdir -p $(dir $@)
 	cp $< $@
 
+${OUTPUT_DIR}/libwinpthread-1.dll: ${WINPTHREAD_DLL}
+	mkdir -p $(dir $@)
+	cp $< $@
+
 
 #
 # Tests
@@ -96,8 +103,11 @@ ${OUTPUT_DIR}/ffmpeg.exe: ${FFMPEG_INSTALLED}
 test_ut: ${LXML_INSTALLED} .requirements ${FFMPEG_INSTALLED} ${SOX_INSTALLED}
 	cd .. && ${WINE} ${PYTHON_INSTALLED} setup.py test
 
-# TODO test freeze
+test_freeze: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe ${OUTPUT_DIR}/libwinpthread-1.dll sample.ogg
+	${WINE} $< -v debug sample.ogg
 
+sample.ogg: ${DOWNLOAD_DIR}/sample.ogg
+	cp $< $@
 
 #
 # Installations
@@ -159,6 +169,10 @@ ${7ZIP_INSTALLER}:
 ${SOX_ZIP}:
 	mkdir -p $(dir $@)
 	${CURL} https://sourceforge.net/projects/sox/files/sox/${SOX_VERSION}/$(notdir $@) > $@
+
+${DOWNLOAD_DIR}/sample.ogg:
+	mkdir -p $(dir $@)
+	${CURL} http://www.vorbis.com/music/Hydrate-Kenny_Beltrey.ogg > $@
 
 
 #

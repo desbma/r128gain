@@ -10,7 +10,6 @@ import argparse
 import concurrent.futures
 import contextlib
 import functools
-import inspect
 import logging
 import operator
 import os
@@ -510,6 +509,11 @@ def cl_main():
   except RuntimeError as e:
     logging.getLogger().error(e)
     exit(1)
+
+
+if getattr(sys, "frozen", False):
+  freeze_dir = os.path.dirname(sys.executable)
+  os.environ["PATH"] = os.pathsep.join((freeze_dir, os.environ["PATH"]))
 
 
 if __name__ == "__main__":
