@@ -64,13 +64,28 @@ before_deploy:
   - "pip install pypandoc"
   - "pip install restructuredtext_lint && t=$(mktemp --suffix=.rst) && pandoc README.md -o $t && rst-lint $t"
 deploy:
-  provider: pypi
-  user: desbma
-  password:
-    secure: "ZQ0Ya1sySDwbK1ipCfl8todh4FXesT1qlwDr3yJGv23SfelIAgswVLMDb3+i51jbnRNqSkhelsw5GUt7/51v6y1VH5AKG2LkqQr9JLNA2UAXeP59IvgHdjjganZWbACFZM6h8zExYptsgdZFvlqaMP5JKKx0yo3nZEiPrIVt6xb96wnUcGMbEI/3fITZWRHcWzG0TDCG2HzwCo7DdSA3D9KGXKYEMGSMfmsnwqMPK86JP2Ue8IrU84sK7fbBvm+65Jwm+PIPKFodfFS+dgwkL2pvRjk7cUq719islUR6c4owXuV0c3fKwOPkiV0lGaCouWBiXqG1iWbQAxMDvog8QxbXSDqsQQV6ZRX8wCu9yXG72PJsqArz1niDp2cDP5Hg28ync2nenMFtTtxUBhU/KfP+nMuJLpo1f4OiWTAVWHdkg8jYAEJVwGT9wjGb6mi4HyvX29MtrtbU9qikBCCiKTw0B0Qm16gpu13nPd8xtEFcPz/DgOin2fSKrtr171M59sZC0+aG3e26grgo5I/LdNWqxjvbDPrBxUlbe3JjpLIKqY7a3GVy4wSXJ5Jlvv0YUscFBcARg3vLjynCj3QuhAfPButzoqfbs0H146WSTrFdzjjzy+aJwbehM3AwrJ4ia6ih9UayZu24j7LvYWWK7+3nDUl+uMUQ/cc16TdvsBM="
-  on:
-    tags: true
-    branch: master
+  - provider: releases
+    api_key:
+      secure: "ZZ587O5uDqOJP7f6pfTfU6ApirlbkepqGc4kJMjiUdVGZgOFER9L/mqShEbBY0HJo27P/4vEFGxOlL92VYeJPzvnbco3di7Wn/xbLfMR8EYgCnQGQKf79pcCl4ABhJx2Us80Ay/3CR+B6QquHtq6Q7eXjjsmSFXDxBh5DkjI+PJZf/teY8JPNN9kMmJxTrJkSDt7InKGskUGTuIIk9dIUUBM2G0FNEBh40jVCcsMS8bvsjieWbwJDq8882cgv306PuPbeS3L0zeHHt+8oarmsCWsi2MnPk/TXdR6ca5Qe6mvf49herX+foVhaK6Fpppb7wVzUIOG4nSYZqAr9fn14pMAgTQ1auwMecxEX9RJekEvVOikEUEQcRU6YrZ4L7dDNdy7sX5dJkplvXlNjZj997IqS5sc5HaYl4GtPyQZGZ9Pn7TYpRhC/CKv7EdmQ15vPA1OkqmM+lYyVRQJUqG/DmKjfz+wmxOQ7bEAe+sqpkpV1iH2JW08VT9sf84cXrrvRlxDl7fbCBTQgHENYpm/QDxK8TK3d6LlRqRpg9sqIhPDm+4JZfRXNdUUTJbrxGJFP4iirAECN0LsAhAdh1CDiK8NWQYvnheIWaG/tvxlHG/4zVuzvZ4eMutyuduXZnSQe43vJraY5KMiwNDb1EKURgjjHUifROAk/+cs9xnewvs="
+    file:
+      - "win/r128gain_win32.zip"
+      - "win/r128gain_win32.7z"
+      - "win/r128gain_win32.exe"
+      - "win/r128gain_win64.zip"
+      - "win/r128gain_win64.7z"
+      - "win/r128gain_win64.exe"
+    skip_cleanup: true
+    on:
+      tags: true
+      branch: master
+      condition: "$WINDOWS -eq 1"
+  - provider: pypi
+    user: desbma
+    password:
+      secure: "ZQ0Ya1sySDwbK1ipCfl8todh4FXesT1qlwDr3yJGv23SfelIAgswVLMDb3+i51jbnRNqSkhelsw5GUt7/51v6y1VH5AKG2LkqQr9JLNA2UAXeP59IvgHdjjganZWbACFZM6h8zExYptsgdZFvlqaMP5JKKx0yo3nZEiPrIVt6xb96wnUcGMbEI/3fITZWRHcWzG0TDCG2HzwCo7DdSA3D9KGXKYEMGSMfmsnwqMPK86JP2Ue8IrU84sK7fbBvm+65Jwm+PIPKFodfFS+dgwkL2pvRjk7cUq719islUR6c4owXuV0c3fKwOPkiV0lGaCouWBiXqG1iWbQAxMDvog8QxbXSDqsQQV6ZRX8wCu9yXG72PJsqArz1niDp2cDP5Hg28ync2nenMFtTtxUBhU/KfP+nMuJLpo1f4OiWTAVWHdkg8jYAEJVwGT9wjGb6mi4HyvX29MtrtbU9qikBCCiKTw0B0Qm16gpu13nPd8xtEFcPz/DgOin2fSKrtr171M59sZC0+aG3e26grgo5I/LdNWqxjvbDPrBxUlbe3JjpLIKqY7a3GVy4wSXJ5Jlvv0YUscFBcARg3vLjynCj3QuhAfPButzoqfbs0H146WSTrFdzjjzy+aJwbehM3AwrJ4ia6ih9UayZu24j7LvYWWK7+3nDUl+uMUQ/cc16TdvsBM="
+    on:
+      tags: true
+      branch: master
 notifications:
   email:
     recipients:
