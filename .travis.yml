@@ -7,6 +7,7 @@ cache:
     - $HOME/FFmpeg
     - $HOME/FFmpeg-win32
     - $HOME/FFmpeg-win64
+    - $HOME/.cache/r128gain-build
     - $HOME/.cache/r128gain-test
     - $HOME/.cache/pypy
 python:
@@ -55,8 +56,8 @@ script:
   - "export PATH=$HOME/.local/bin:$PATH"
   - "export TEST_DL_CACHE_DIR=$HOME/.cache/r128gain-test"
   - "coverage run --source=r128gain setup.py test"
-  - "if [ $WINDOWS -eq 1 ]; then pushd win && FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$HOME/FFmpeg-win32 WINEARCH=win32 make test && popd; fi"
-  - "if [ $WINDOWS -eq 1 ]; then pushd win && FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$HOME/FFmpeg-win64 WINEARCH=win64 make test_freeze && popd; fi"
+  - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$HOME/.cache/r128gain-build FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$HOME/FFmpeg-win32 WINEARCH=win32 make test && popd; fi"
+  - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$HOME/.cache/r128gain-build FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$HOME/FFmpeg-win64 WINEARCH=win64 make test_freeze && popd; fi"
 after_success:
   - "coveralls"
 before_deploy:
