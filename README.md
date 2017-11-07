@@ -28,6 +28,10 @@ r128gain can also be used as a Python module from other Python projects to scan 
 
 r128gain requires [Python](https://www.python.org/downloads/) >= 3.4 and [FFmpeg](https://www.ffmpeg.org/download.html) >= 2.8.
 
+### Standalone Windows executable
+
+Windows users can download a [standalone binary](https://github.com/desbma/r128gain/releases/latest) which does not require Python, and bundles FFmpeg.
+
 ### Arch Linux
 
 Arch Linux users can install the [r128gain](https://aur.archlinux.org/packages/r128gain/) AUR package.
@@ -41,10 +45,6 @@ Install r128gain using [pip](https://pip.pypa.io/en/stable/installing/): `pip3 i
 1. If you don't already have it, [install setuptools](https://pypi.python.org/pypi/setuptools#installation-instructions) for Python 3
 2. Clone this repository: `git clone https://github.com/desbma/r128gain`
 3. Install r128gain: `python3 setup.py install`
-
-### Standalone Windows executable
-
-Windows users can also download a [standalone binary which does not require Python, and bundles FFmpeg](https://github.com/desbma/r128gain/releases).
 
 
 ## Command line usage
