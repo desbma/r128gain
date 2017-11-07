@@ -42,6 +42,10 @@ Install r128gain using [pip](https://pip.pypa.io/en/stable/installing/): `pip3 i
 2. Clone this repository: `git clone https://github.com/desbma/r128gain`
 3. Install r128gain: `python3 setup.py install`
 
+### Standalone Windows executable
+
+Windows users can also download a [standalone binary which does not require Python, and bundles FFmpeg](https://github.com/desbma/r128gain/releases).
+
 
 ## Command line usage
 
