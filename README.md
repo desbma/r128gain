@@ -21,6 +21,7 @@ r128gain can also be used as a Python module from other Python projects to scan 
 * Supports all common audio file formats (MP3, AAC, Vorbis, Opus, FLAC, WavPack...) and tag formats (ID3, Vorbis comments, MP4, APEv2...)
 * Writes tags compatible with music players reading track/album gain metadata
 * Supports new R128_XXX_GAIN tag format for Opus files (very few scanners write this tag, athough it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
+* Supports writing gain to the [Opus *output gain* header](https://tools.ietf.org/html/rfc7845#page-15) (**experimental**)
 * Uses threading to optimally use processor cores resulting in very fast processing
 
 
