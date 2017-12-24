@@ -16,6 +16,7 @@ import mutagen
 import requests
 
 import r128gain
+import r128gain.opusgain
 
 
 IS_TRAVIS = os.getenv("CI") and os.getenv("TRAVIS")
@@ -650,6 +651,44 @@ class TestR128Gain(unittest.TestCase):
           elif i == 0:
             self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
             self.assertNotIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
+
+  def test_oggopus_output_gain(self):
+    # non opus formats should not be parsed successfully
+    with open(self.vorbis_filepath, "rb") as f:
+      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
+    with open(self.mp3_filepath, "rb") as f:
+      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
+    with open(self.m4a_filepath, "rb") as f:
+      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
+    with open(self.flac_filepath, "rb") as f:
+      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
+    with open(self.wv_filepath, "rb") as f:
+      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
+
+    with open(self.opus_filepath, "r+b") as f:
+      self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), 0)
+
+      new_gain = random.randint(-32768, 32767)
+      r128gain.opusgain.write_oggopus_output_gain(f, new_gain)
+
+    with open(self.opus_filepath, "rb") as f:
+      self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), new_gain)
+
+  def test_tag_oggopus_output_gain(self):
+    ref_loudness_opus = -23
+    loudness = self.ref_levels[self.opus_filepath][0]
+    r128gain.tag(self.opus_filepath, loudness, None, opus_output_gain=True)
+    mf = mutagen.File(self.opus_filepath)
+    self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+    self.assertIn("R128_TRACK_GAIN", mf)
+    self.assertEqual(mf["R128_TRACK_GAIN"], ["0"])
+
+    expected_output_gain = round((ref_loudness_opus - loudness) * (2 ** 8))
+    with open(self.opus_filepath, "rb") as f:
+      self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
+
+    self.assertEqual(r128gain.scan([self.opus_filepath]),
+                     {self.opus_filepath: (float(ref_loudness_opus), None)})
 
 
 if __name__ == "__main__":

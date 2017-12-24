@@ -21,6 +21,7 @@ import time
 import mutagen
 
 import r128gain.colored_logging as colored_logging
+import r128gain.opusgain as opusgain
 
 
 AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "wv"))
@@ -165,7 +166,7 @@ def float_to_q7dot8(f):
 
 
 def tag(filepath, loudness, peak, *,
-        album_loudness=None, album_peak=None):
+        album_loudness=None, album_peak=None, opus_output_gain=False):
   """ Tag audio file with loudness metadata. """
   assert((loudness is not None) or (album_loudness is not None))
 
@@ -196,6 +197,19 @@ def tag(filepath, loudness, peak, *,
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RVA2
 
   elif isinstance(mf, mutagen.oggopus.OggOpus):
+    if opus_output_gain and (loudness is not None):
+      with open(filepath, "r+b") as file:
+        current_output_gain = opusgain.parse_oggopus_output_gain(file)
+        new_output_gain = current_output_gain + float_to_q7dot8(OPUS_REF_R128_LOUDNESS_DBFS - loudness)
+        opusgain.write_oggopus_output_gain(file, new_output_gain)
+
+      # now that the output gain header is written, we will write the R128 tag for the new loudness
+      loudness = OPUS_REF_R128_LOUDNESS_DBFS
+      if album_loudness is not None:
+        # assume the whole album will be normalized the same way
+        # TODO better behavior? rescan album? disable R128 tags?
+        album_loudness = OPUS_REF_R128_LOUDNESS_DBFS
+
     # https://wiki.xiph.org/OggOpus#Comment_Header
     if loudness is not None:
       q78 = float_to_q7dot8(OPUS_REF_R128_LOUDNESS_DBFS - loudness)
@@ -297,8 +311,8 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
     logger().info("Album '%s': loudness = %s, peak = %s" % (album_dir, album_loudness, album_peak))
 
 
-def process(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None,
-            dry_run=False, report=False):
+def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, skip_tagged=False, thread_count=None,
+            ffmpeg_path=None, dry_run=False, report=False):
   # analyze files
   r128_data = scan(audio_filepaths,
                    album_gain=album_gain,
@@ -330,15 +344,16 @@ def process(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_coun
         loudness, peak = None, None
     try:
       tag(audio_filepath, loudness, peak,
-          album_loudness=album_loudness, album_peak=album_peak)
+          album_loudness=album_loudness, album_peak=album_peak,
+          opus_output_gain=opus_output_gain)
     except Exception as e:
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                          e.__class__.__qualname__,
                                                          e))
 
 
-def process_recursive(directories, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None,
-                      dry_run=False, report=False):
+def process_recursive(directories, *, album_gain=False, opus_output_gain=False, skip_tagged=False, thread_count=None,
+                      ffmpeg_path=None, dry_run=False, report=False):
   if thread_count is None:
     try:
       thread_count = len(os.sched_getaffinity(0))
@@ -407,7 +422,8 @@ def process_recursive(directories, *, album_gain=False, skip_tagged=False, threa
                   loudness, peak = None, None
               try:
                 tag(audio_filepath, loudness, peak,
-                    album_loudness=album_loudness, album_peak=album_peak)
+                    album_loudness=album_loudness, album_peak=album_peak,
+                    opus_output_gain=opus_output_gain)
               except Exception as e:
                 logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                                    e.__class__.__qualname__,
@@ -451,6 +467,15 @@ def cl_main():
                                   Warning: only enable if you are sure of the validity of the existing tags, as it can
                                   cause volume differences if existing tags are incorrect or coming from a old RGv1
                                   tagger.""")
+  arg_parser.add_argument("-o",
+                          "--opus-output-gain",
+                          action="store_true",
+                          default=False,
+                          help="""For Opus files, write track gain in the 'output gain' Opus header (see
+                                  https://tools.ietf.org/html/rfc7845#page-15). This gain is mandatory to apply for all
+                                  Opus decoders so this should improve compatibility with players not supporting the
+                                  R128 tags.
+                                  Warning: This is EXPERIMENTAL, only use if you fully understand the implications.""")
   arg_parser.add_argument("-c",
                           "--thread-count",
                           type=int,
@@ -493,6 +518,7 @@ def cl_main():
     if args.recursive:
       process_recursive(args.path,
                         album_gain=args.album_gain,
+                        opus_output_gain=args.opus_output_gain,
                         skip_tagged=args.skip_tagged,
                         thread_count=args.thread_count,
                         ffmpeg_path=args.ffmpeg_path,
@@ -501,6 +527,7 @@ def cl_main():
     else:
       process(args.path,
               album_gain=args.album_gain,
+              opus_output_gain=args.opus_output_gain,
               skip_tagged=args.skip_tagged,
               thread_count=args.thread_count,
               ffmpeg_path=args.ffmpeg_path,
