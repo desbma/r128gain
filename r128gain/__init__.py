@@ -40,6 +40,23 @@ def is_audio_filepath(filepath):
   return os.path.splitext(filepath)[-1].lstrip(".").lower() in AUDIO_EXTENSIONS
 
 
+@functools.lru_cache()
+def get_ffmpeg_version(ffmpeg_path=None):
+  """ Get FFmpeg version as a 32 bit integer, with same format as sys.hexversion.
+
+  Example: 0x3040100 for FFmpeg 3.4.1
+  """
+  cmd = (ffmpeg_path or "ffmpeg", "-version")
+  output = subprocess.check_output(cmd, universal_newlines=True)
+  line = output.splitlines()[0]
+  version = line.split(" ", 3)[2]
+  version = tuple(map(int, version.split(".")))
+  int_version = 0
+  for i, d in enumerate(reversed(version), 1):
+    int_version |= d << (8 * i)
+  return int_version
+
+
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
   """ Get R128 loudness loudness level and peak, in dbFS. """
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
@@ -50,9 +67,8 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
     if not enable_ffmpeg_threading:
       cmd.extend(("-threads:%u" % (i), "1"))  # single decoding thread
     cmd.extend(("-i", audio_filepath))
-  # TODO do for FFmpeg >= 3.3 only
-  # if not enable_ffmpeg_threading:
-  #   cmd.extend(("-filter_threads", "1"))  # single filter thread
+  if (get_ffmpeg_version() >= 0x3030000) and (not enable_ffmpeg_threading):
+    cmd.extend(("-filter_threads", "1"))  # single filter thread
   filter_params = {"framelog": "verbose"}
   if calc_peak:
     filter_params["peak"] = "true"
@@ -512,6 +528,12 @@ def cl_main():
   logging_handler = logging.StreamHandler()
   logging_handler.setFormatter(logging_formatter)
   logging.getLogger().addHandler(logging_handler)
+
+  # show ffmpeg version
+  ffmpeg_version = get_ffmpeg_version(args.ffmpeg_path)
+  logger().debug("Detected FFmpeg version: %u.%u.%u" % ((ffmpeg_version >> 24) & 0xff,
+                                                        (ffmpeg_version >> 16) & 0xff,
+                                                        (ffmpeg_version >> 8) & 0xff))
 
   # main
   try:
