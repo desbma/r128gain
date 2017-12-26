@@ -7,12 +7,14 @@ __author__ = "desbma"
 __license__ = "LGPLv2"
 
 import argparse
+import collections
 import concurrent.futures
 import contextlib
 import functools
 import logging
 import operator
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -41,20 +43,25 @@ def is_audio_filepath(filepath):
 
 
 @functools.lru_cache()
-def get_ffmpeg_version(ffmpeg_path=None):
-  """ Get FFmpeg version as a 32 bit integer, with same format as sys.hexversion.
+def get_ffmpeg_lib_versions(ffmpeg_path=None):
+  """ Get FFmpeg library versions as 32 bit integers, with same format as sys.hexversion.
 
   Example: 0x3040100 for FFmpeg 3.4.1
   """
+  r = collections.OrderedDict()
   cmd = (ffmpeg_path or "ffmpeg", "-version")
   output = subprocess.check_output(cmd, universal_newlines=True)
-  line = output.splitlines()[0]
-  version = line.split(" ", 3)[2]
-  version = tuple(map(int, version.split(".")))
-  int_version = 0
-  for i, d in enumerate(reversed(version), 1):
-    int_version |= d << (8 * i)
-  return int_version
+  output = output.splitlines()
+  lib_version_regex = re.compile("^\s*(lib[a-z]+)\s+([0-9]+).\s*([0-9]+).\s*([0-9]+)\s+")
+  for line in output:
+    match = lib_version_regex.search(line)
+    if match:
+      lib_name, *lib_version = match.group(1, 2, 3, 4)
+      int_lib_version = 0
+      for i, d in enumerate(map(int, reversed(lib_version)), 1):
+        int_lib_version |= d << (8 * i)
+      r[lib_name] = int_lib_version
+  return r
 
 
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
@@ -67,7 +74,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
     if not enable_ffmpeg_threading:
       cmd.extend(("-threads:%u" % (i), "1"))  # single decoding thread
     cmd.extend(("-i", audio_filepath))
-  if (get_ffmpeg_version() >= 0x3030000) and (not enable_ffmpeg_threading):
+  if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
     cmd.extend(("-filter_threads", "1"))  # single filter thread
   filter_params = {"framelog": "verbose"}
   if calc_peak:
@@ -530,10 +537,13 @@ def cl_main():
   logging.getLogger().addHandler(logging_handler)
 
   # show ffmpeg version
-  ffmpeg_version = get_ffmpeg_version(args.ffmpeg_path)
-  logger().debug("Detected FFmpeg version: %u.%u.%u" % ((ffmpeg_version >> 24) & 0xff,
-                                                        (ffmpeg_version >> 16) & 0xff,
-                                                        (ffmpeg_version >> 8) & 0xff))
+  ffmpeg_lib_versions = get_ffmpeg_lib_versions(args.ffmpeg_path)
+  logger().debug("Detected FFmpeg lib versions: "
+                 "%s" % (", ".join("%s: %u.%u.%u" % (lib_name,
+                                                     (lib_version >> 24) & 0xff,
+                                                     (lib_version >> 16) & 0xff,
+                                                     (lib_version >> 8) & 0xff)
+                                   for lib_name, lib_version in ffmpeg_lib_versions.items())))
 
   # main
   try:
