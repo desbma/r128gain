@@ -3,8 +3,8 @@
 set -o pipefail
 
 readonly FFMPEG_VERSION=${1:?}
-readonly BUILD_DIR=${2:-$HOME/FFmpeg}
-readonly ARCH=${3:-win32}
+readonly ARCH=${2:-win32}
+readonly BUILD_DIR=${3:-$HOME/.cache/ci/r128gain/ffmpeg-${ARCH}}
 readonly OUTPUT_FILE=${4:-ffmpeg.exe}
 readonly PROC_COUNT=$(grep -c '^processor' /proc/cpuinfo)
 

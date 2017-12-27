@@ -1,6 +1,6 @@
 WINEARCH          ?= win32
 FFMPEG_VERSION    ?= 3.4
-FFMPEG_CACHE_DIR  ?= ${HOME}/FFmpeg-${WINEARCH}
+FFMPEG_CACHE_DIR  ?= ${HOME}/.cache/ci/r128gain/ffmpeg-${WINEARCH}
 
 # versions
 PYTHON_VERSION       := 3.4.4
@@ -141,7 +141,7 @@ ${7ZIP_INSTALLED}: ${7ZIP_INSTALLER}
 
 ${FFMPEG_INSTALLED}:
 	mkdir -p $(dir $@)
-	./build-minimal-ffpmeg ${FFMPEG_VERSION} ${FFMPEG_CACHE_DIR} ${WINEARCH} $@
+	./build-minimal-ffpmeg ${FFMPEG_VERSION} ${WINEARCH} ${FFMPEG_CACHE_DIR} $@
 
 ${SOX_INSTALLED}: ${SOX_ZIP}
 	mkdir -p ${WINE_DIR}/drive_c

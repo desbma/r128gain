@@ -4,12 +4,7 @@ language: python
 cache:
   pip: true
   directories:
-    - $HOME/FFmpeg
-    - $HOME/FFmpeg-win32
-    - $HOME/FFmpeg-win64
-    - $HOME/.cache/r128gain-build
-    - $HOME/.cache/r128gain-test
-    - $HOME/.cache/pypy
+    - $HOME/.cache/ci/r128gain
 python:
   - "3.4"
   - "3.5"
@@ -39,14 +34,15 @@ matrix:
     - python: "pypy3"
   fast_finish: true
 before_install:
+  - "export CI_CACHE_DIR=~/.cache/ci/r128gain"
   - "if [ $TRAVIS_PYTHON_VERSION = '3.4' -a $FFMPEG_VERSION = '3.4' ]; then WINDOWS=1; fi"
   - "if [ $WINDOWS -eq 1 ]; then curl https://dl.winehq.org/wine-builds/Release.key | sudo apt-key add - && sudo apt-add-repository https://dl.winehq.org/wine-builds/ubuntu/; fi"
   - "sudo apt-get -q update"
   - "sudo apt-get -V install yasm"
   - "./ci/install-ffmpeg $FFMPEG_VERSION"
   - "if [ $TRAVIS_PYTHON_VERSION != 'pypy3' ]; then pip install -U pip; fi"
-  - "if [ $TRAVIS_PYTHON_VERSION = 'pypy3' ]; then mkdir -p ~/.cache/pypy && echo $PYPY3_SHA256  ~/.cache/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 | sha256sum --status -c || curl -f -L https://bitbucket.org/squeaky/portable-pypy/downloads/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 > ~/.cache/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2; fi"
-  - "if [ $TRAVIS_PYTHON_VERSION = 'pypy3' ]; then echo $PYPY3_SHA256  ~/.cache/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 | sha256sum --status -c && tar -xjf ~/.cache/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 -C ~ && deactivate && ~/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable/bin/virtualenv-pypy ~/pypy3-venv && . ~/pypy3-venv/bin/activate; fi"
+  - "if [ $TRAVIS_PYTHON_VERSION = 'pypy3' ]; then mkdir -p $CI_CACHE_DIR/pypy && echo $PYPY3_SHA256  $CI_CACHE_DIR/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 | sha256sum --status -c || curl -f -L https://bitbucket.org/squeaky/portable-pypy/downloads/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 > $CI_CACHE_DIR/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2; fi"
+  - "if [ $TRAVIS_PYTHON_VERSION = 'pypy3' ]; then echo $PYPY3_SHA256  $CI_CACHE_DIR/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 | sha256sum --status -c && tar -xjf $CI_CACHE_DIR/pypy/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable.tar.bz2 -C ~ && deactivate && ~/pypy$PYPY3_PYTHON_VERSION-$PYPY3_VERSION-linux_x86_64-portable/bin/virtualenv-pypy ~/pypy3-venv && . ~/pypy3-venv/bin/activate; fi"
 install:
   - "sudo apt-get -V install sox"
   - "pip install -r test-requirements.txt"
@@ -54,10 +50,9 @@ install:
   - "if [ $WINDOWS -eq 1 ]; then sudo apt-get -V install winehq-stable p7zip-full mingw-w64; fi"
 script:
   - "export PATH=$HOME/.local/bin:$PATH"
-  - "export TEST_DL_CACHE_DIR=$HOME/.cache/r128gain-test"
   - "coverage run --source=r128gain setup.py test"
-  - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$HOME/.cache/r128gain-build FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$HOME/FFmpeg-win32 WINEARCH=win32 make all test && popd; fi"
-  - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$HOME/.cache/r128gain-build FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$HOME/FFmpeg-win64 WINEARCH=win64 make all test_freeze && popd; fi"
+  - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$CI_CACHE_DIR/build TEST_DL_CACHE_DIR=$CI_CACHE_DIR/test FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$CI_CACHE_DIR/ffmpeg-win32 WINEARCH=win32 make all test && popd; fi"
+  - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$CI_CACHE_DIR/build TEST_DL_CACHE_DIR=$CI_CACHE_DIR/test FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$CI_CACHE_DIR/ffmpeg-win64 WINEARCH=win64 make all test_freeze && popd; fi"
 after_success:
   - "coveralls"
 before_deploy:
