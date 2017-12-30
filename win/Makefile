@@ -23,7 +23,7 @@ SOX_ZIP                 := ${DOWNLOAD_DIR}/sox-${SOX_VERSION}-win32.zip
 # env
 CURL     := curl -s -f -L -m 600 --connect-timeout 30 --retry 10 --retry-max-time 5
 WINE_DIR := /tmp/$(subst /,_,${CURDIR})/wine-${WINEARCH}
-WINE     := mkdir -p $(dir ${WINE_DIR}) && WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDEBUG=-all wine
+WINE     := mkdir -p $(dir ${WINE_DIR}) && WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDLLOVERRIDES="mscoree,mshtml=" WINEDEBUG=-all wine
 UNZIP    := unzip -o -q -DD
 
 # installed files
