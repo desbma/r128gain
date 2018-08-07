@@ -120,10 +120,10 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
           thread_count = os.cpu_count()
       enable_ffmpeg_threading = thread_count > (len(audio_filepaths) + int(album_gain))
       executor = cm.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=thread_count))
-      async = False
+      asynchronous = False
     else:
       enable_ffmpeg_threading = False
-      async = True
+      asynchronous = True
 
     futures = {}
     if album_gain:
@@ -154,7 +154,7 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
                                                 enable_ffmpeg_threading=enable_ffmpeg_threading,
                                                 ffmpeg_path=ffmpeg_path)
 
-    if async:
+    if asynchronous:
       return futures
 
     for audio_filepath in audio_filepaths:
