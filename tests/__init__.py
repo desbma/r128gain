@@ -53,7 +53,7 @@ class TestR128Gain(unittest.TestCase):
              opus_filepath)
 
     mp3_filepath = os.path.join(cls.ref_temp_dir.name, "f.mp3")
-    download("https://allthingsaudio.wikispaces.com/file/view/Shuffle%20for%20K.M.mp3/139190697/Shuffle%20for%20K.M.mp3",
+    download("https://www.sample-videos.com/audio/mp3/wave.mp3",
              mp3_filepath)
 
     m4a_filepath = os.path.join(cls.ref_temp_dir.name, "f.m4a")
@@ -95,11 +95,11 @@ class TestR128Gain(unittest.TestCase):
 
     self.ref_levels = {self.vorbis_filepath: (-7.7, 2.6),
                        self.opus_filepath: (-14.7, None),
-                       self.mp3_filepath: (-15.3, -0.1),
+                       self.mp3_filepath: (-21.8, -9.2),
                        self.m4a_filepath: (-20.6, 0.1),
                        self.flac_filepath: (-26.7, -12.7),
                        self.wv_filepath: (-3.3, -3.0),
-                       0: (-12.6, 2.6)}
+                       0: (-11.7, 2.6)}
 
     self.max_peak_filepath = self.vorbis_filepath
 
@@ -333,7 +333,8 @@ class TestR128Gain(unittest.TestCase):
           self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
                            ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.mp3_filepath][0])])
           self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.988553"])
+          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
+                           ["%.6f" % (10 ** (self.ref_levels[self.mp3_filepath][1] / 20))])
           if album_gain:
             self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
             self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
@@ -430,7 +431,7 @@ class TestR128Gain(unittest.TestCase):
       f.write(b"\x00")
 
     ref_levels_dir1 = (-13, 2.6)
-    ref_levels_dir2 = (-15.7, -0.1)
+    ref_levels_dir2 = (-21, -2.9)
 
     # directory tree is as follows (root is self.temp_dir.name):
     # ├── a
@@ -505,7 +506,8 @@ class TestR128Gain(unittest.TestCase):
           self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
                            ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.mp3_filepath][0])])
           self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.988553"])
+          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
+                           ["%.6f" % (10 ** (self.ref_levels[self.mp3_filepath][1] / 20))])
           if album_gain:
             self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
             self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
@@ -617,7 +619,8 @@ class TestR128Gain(unittest.TestCase):
           self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
                            ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.mp3_filepath][0])])
           self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text, ["0.988553"])
+          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
+                           ["%.6f" % (10 ** (self.ref_levels[self.mp3_filepath][1] / 20))])
           if album_gain:
             self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
             self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
