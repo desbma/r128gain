@@ -53,7 +53,7 @@ class TestR128Gain(unittest.TestCase):
              opus_filepath)
 
     mp3_filepath = os.path.join(cls.ref_temp_dir.name, "f.mp3")
-    download("https://www.sample-videos.com/audio/mp3/wave.mp3",
+    download("http://www.largesound.com/ashborytour/sound/brobob.mp3",
              mp3_filepath)
 
     m4a_filepath = os.path.join(cls.ref_temp_dir.name, "f.m4a")
@@ -95,11 +95,11 @@ class TestR128Gain(unittest.TestCase):
 
     self.ref_levels = {self.vorbis_filepath: (-7.7, 2.6),
                        self.opus_filepath: (-14.7, None),
-                       self.mp3_filepath: (-21.8, -9.2),
+                       self.mp3_filepath: (-13.9, -0.5),
                        self.m4a_filepath: (-20.6, 0.1),
                        self.flac_filepath: (-26.7, -12.7),
                        self.wv_filepath: (-3.3, -3.0),
-                       0: (-11.7, 2.6)}
+                       0: (-11.4, 2.6)}
 
     self.max_peak_filepath = self.vorbis_filepath
 
@@ -431,7 +431,7 @@ class TestR128Gain(unittest.TestCase):
       f.write(b"\x00")
 
     ref_levels_dir1 = (-13, 2.6)
-    ref_levels_dir2 = (-21, -2.9)
+    ref_levels_dir2 = (-17.3, -0.5)
 
     # directory tree is as follows (root is self.temp_dir.name):
     # ├── a
