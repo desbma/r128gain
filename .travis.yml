@@ -1,4 +1,4 @@
-dist: trusty
+dist: xenial
 sudo: required
 language: python
 cache:
@@ -11,6 +11,7 @@ python:
   - "3.5-dev"
   - "3.6"
   - "3.6-dev"
+  - "3.7"
   - "3.7-dev"
   - "pypy3"
 env:
@@ -25,6 +26,7 @@ env:
     - FFMPEG_VERSION=3.2
     - FFMPEG_VERSION=3.3
     - FFMPEG_VERSION=3.4
+    - FFMPEG_VERSION=4.0
     - FFMPEG_VERSION=master
 matrix:
   allow_failures:
@@ -82,7 +84,7 @@ deploy:
     on:
       tags: true
       branch: master
-      python: "3.6"
+      python: "3.7"
       condition: $FFMPEG_VERSION = master
 notifications:
   email:
