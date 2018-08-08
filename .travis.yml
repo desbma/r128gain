@@ -13,11 +13,17 @@ python:
   - "3.6-dev"
   - "3.7-dev"
   - "pypy3"
-# see https://github.com/travis-ci/travis-ci/issues/9815#issue-336465122
 matrix:
+  # see https://github.com/travis-ci/travis-ci/issues/9815#issue-336465122
   include:
     - python: "3.7"
       dist: xenial
+  allow_failures:
+    - python: "3.5-dev"
+    - python: "3.6-dev"
+    - python: "3.7-dev"
+    - python: "pypy3"
+  fast_finish: true
 env:
   global:
     - PYPY3_PYTHON_VERSION=3.5
@@ -32,13 +38,6 @@ env:
     - FFMPEG_VERSION=3.4
     - FFMPEG_VERSION=4.0
     - FFMPEG_VERSION=master
-matrix:
-  allow_failures:
-    - python: "3.5-dev"
-    - python: "3.6-dev"
-    - python: "3.7-dev"
-    - python: "pypy3"
-  fast_finish: true
 before_install:
   - "export CI_CACHE_DIR=~/.cache/ci/r128gain"
   - "if [ $TRAVIS_PYTHON_VERSION = '3.4' -a $FFMPEG_VERSION = '3.4' ]; then WINDOWS=1; fi"
@@ -88,7 +87,7 @@ deploy:
     on:
       tags: true
       branch: master
-      python: "3.7"
+      python: "3.6"
       condition: $FFMPEG_VERSION = master
 notifications:
   email:
