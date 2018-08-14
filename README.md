@@ -20,7 +20,7 @@ r128gain can also be used as a Python module from other Python projects to scan 
 
 * Supports all common audio file formats (MP3, AAC, Vorbis, Opus, FLAC, WavPack...) and tag formats (ID3, Vorbis comments, MP4, APEv2...)
 * Writes tags compatible with music players reading track/album gain metadata
-* Supports new R128_XXX_GAIN tag format for Opus files (very few scanners write this tag, athough it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
+* Supports new R128_XXX_GAIN tag format for Opus files (very few scanners write this tag, although it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
 * Supports writing gain to the [Opus *output gain* header](https://tools.ietf.org/html/rfc7845#page-15) (**experimental**)
 * Uses threading to optimally use processor cores resulting in very fast processing
 
@@ -57,7 +57,7 @@ Run `r128gain -h` to get full command line reference.
 * Scan a single file and display its loudness information: `r128gain -d an_audio_file.mp3`
 * Scan & tag a single file: `r128gain an_audio_file.mp3`
 * Scan & tag all audio files in `music_directory` and all its subdirectories: `r128gain -r music_directory`
-* Scan & tag all audio files in `music_directory` and all its subdirectories, and add ablum gain tags (files contained in each directory are considered as part of the same album): `r128gain -r -a music_directory`
+* Scan & tag all audio files in `music_directory` and all its subdirectories, and add album gain tags (files contained in each directory are considered as part of the same album): `r128gain -r -a music_directory`
 
 
 ## License
