@@ -65,7 +65,7 @@ def get_ffmpeg_lib_versions(ffmpeg_path=None):
 
 
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
-  """ Get R128 loudness loudness level and peak, in dbFS. """
+  """ Get R128 loudness loudness level and true peak, in LUFS/dBFS. """
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
                                                         ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
   cmd = [ffmpeg_path or "ffmpeg",
@@ -312,11 +312,11 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
     except KeyError:
       loudness, peak = "SKIPPED", "SKIPPED"
     else:
-      loudness = "%.1f dbFS" % (loudness)
+      loudness = "%.1f LUFS" % (loudness)
       if peak is None:
         peak = "-"
       else:
-        peak = "%.1f dbFS" % (peak)
+        peak = "%.1f dBFS" % (peak)
     logger().info("File '%s': loudness = %s, peak = %s" % (audio_filepath, loudness, peak))
 
   # album loudness/peak
@@ -326,11 +326,11 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
     except KeyError:
       album_loudness, album_peak = "SKIPPED", "SKIPPED"
     else:
-      album_loudness = "%.1f dbFS" % (album_loudness)
+      album_loudness = "%.1f LUFS" % (album_loudness)
       if album_peak is None:
         album_peak = "-"
       else:
-        album_peak = "%.1f dbFS" % (album_peak)
+        album_peak = "%.1f dBFS" % (album_peak)
     logger().info("Album '%s': loudness = %s, peak = %s" % (album_dir, album_loudness, album_peak))
 
 
