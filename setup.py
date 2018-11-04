@@ -20,12 +20,8 @@ with open("requirements.txt", "rt") as f:
 with open("test-requirements.txt", "rt") as f:
   test_requirements = f.read().splitlines()
 
-try:
-  import pypandoc
-  readme = pypandoc.convert("README.md", "rst")
-except ImportError:
-  with open("README.md", "rt") as f:
-    readme = f.read()
+with open("README.md", "rt") as f:
+  readme = f.read()
 
 setup(name="r128gain",
       version=version,
@@ -36,6 +32,7 @@ setup(name="r128gain",
       install_requires=requirements,
       tests_require=test_requirements,
       description="Fast audio loudness scanner & tagger",
+      long_description_content_type="text/markdown",
       long_description=readme,
       url="https://github.com/desbma/r128gain",
       download_url="https://github.com/desbma/r128gain/archive/%s.tar.gz" % (version),

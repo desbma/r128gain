@@ -60,10 +60,6 @@ script:
   - "if [ $WINDOWS -eq 1 ]; then pushd win && DOWNLOAD_DIR=$CI_CACHE_DIR/build TEST_DL_CACHE_DIR=$CI_CACHE_DIR/test FFMPEG_VERSION=$FFMPEG_VERSION FFMPEG_CACHE_DIR=$CI_CACHE_DIR/ffmpeg-win64 WINEARCH=win64 make all test_freeze && popd; fi"
 after_success:
   - "coveralls"
-before_deploy:
-  - "sudo apt-get -V install pandoc"
-  - "pip install pypandoc"
-  - "pip install restructuredtext_lint && t=$(mktemp --suffix=.rst) && pandoc README.md -o $t && rst-lint $t"
 deploy:
   - provider: releases
     api_key:
