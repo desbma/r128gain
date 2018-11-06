@@ -37,6 +37,7 @@ env:
     - FFMPEG_VERSION=3.3
     - FFMPEG_VERSION=3.4
     - FFMPEG_VERSION=4.0
+    - FFMPEG_VERSION=4.1
     - FFMPEG_VERSION=master
 before_install:
   - "export CI_CACHE_DIR=~/.cache/ci/r128gain"
