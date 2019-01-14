@@ -52,7 +52,7 @@ install:
   - "sudo apt-get -V install sox"
   - "pip install -r test-requirements.txt"
   - "pip install coveralls"
-  - "if [ $WINDOWS -eq 1 ]; then sudo apt-get -V install winehq-stable p7zip-full mingw-w64; fi"
+  - "if [ $WINDOWS -eq 1 ]; then sudo apt-get -V --allow-unauthenticated install winehq-stable p7zip-full mingw-w64; fi"
 script:
   - "export PATH=$HOME/.local/bin:$PATH"
   - "coverage run --source=r128gain setup.py test"
