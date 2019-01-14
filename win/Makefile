@@ -177,7 +177,7 @@ ${SOX_ZIP}:
 
 ${DOWNLOAD_DIR}/sample.ogg:
 	mkdir -p $(dir $@)
-	${CURL} http://www.vorbis.com/music/Hydrate-Kenny_Beltrey.ogg > $@
+	${CURL} https://upload.wikimedia.org/wikipedia/en/0/09/Opeth_-_Deliverance.ogg > $@
 
 
 #
