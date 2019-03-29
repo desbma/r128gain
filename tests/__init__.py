@@ -107,16 +107,16 @@ class TestR128Gain(unittest.TestCase):
     self.flac_filepath_2 = os.path.join(self.temp_dir.name, "f2.flac")
     self.wv_filepath = os.path.join(self.temp_dir.name, "f.wv")
 
-    self.ref_levels = {self.vorbis_filepath: (-7.7, 0.5),
+    self.ref_levels = {self.vorbis_filepath: (-7.7, 0.0),
                        self.opus_filepath: (-14.7, None),
                        self.mp3_filepath: (-13.9, -0.5),
-                       self.m4a_filepath: (-20.6, -2.9),
+                       self.m4a_filepath: (-20.6, -3.0),
                        self.flac_filepath: (-26.7, -12.7),
                        self.wv_filepath: (-3.3, -3.0),
                        0: (-11.4, 2.6)}
     self.ref_levels_2 = self.ref_levels.copy()
-    self.ref_levels_2.update({self.flac_filepath_2: (-6.2, 2.4),
-                              0: (-11.0, 2.4)})
+    self.ref_levels_2.update({self.flac_filepath_2: (-6.2, 0.0),
+                              0: (-11.0, 0.0)})
 
     self.max_peak_filepath = self.vorbis_filepath
 
@@ -450,7 +450,7 @@ class TestR128Gain(unittest.TestCase):
     with open(album2_dummy_filepath, "wb") as f:
       f.write(b"\x00")
 
-    ref_levels_dir1 = (-13, 0.5)
+    ref_levels_dir1 = (-13, 0.0)
     ref_levels_dir2 = (-17.3, -0.5)
 
     # directory tree is as follows (root is self.temp_dir.name):

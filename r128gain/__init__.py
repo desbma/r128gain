@@ -71,7 +71,7 @@ def format_ffmpeg_filter(name, params):
 
 
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
-  """ Get R128 loudness loudness level and true peak, in LUFS/dBFS. """
+  """ Get R128 loudness loudness level and sample peak, in LUFS/dBFS. """
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
                                                         ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
   cmd = [ffmpeg_path or "ffmpeg",
@@ -85,7 +85,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   cmd.extend(("-map", "a"))
   ebur128_filter_params = {"framelog": "verbose"}
   if calc_peak:
-    ebur128_filter_params["peak"] = "true"
+    ebur128_filter_params["peak"] = "sample"
   aformat_filter_params = {"sample_fmts": "s16",
                            "sample_rates": "48000",
                            "channel_layouts": "stereo"}
@@ -332,7 +332,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
         peak = "-"
       else:
         peak = "%.1f dBFS" % (peak)
-    logger().info("File '%s': loudness = %s, peak = %s" % (audio_filepath, loudness, peak))
+    logger().info("File '%s': loudness = %s, sample peak = %s" % (audio_filepath, loudness, peak))
 
   # album loudness/peak
   if album_dir:
@@ -345,8 +345,8 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
       if album_peak is None:
         album_peak = "-"
       else:
-        album_peak = "%.1f dBFS TP" % (album_peak)
-    logger().info("Album '%s': loudness = %s, peak = %s" % (album_dir, album_loudness, album_peak))
+        album_peak = "%.1f dBFS" % (album_peak)
+    logger().info("Album '%s': loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
 
 
 def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, skip_tagged=False, thread_count=None,
