@@ -64,6 +64,12 @@ def get_ffmpeg_lib_versions(ffmpeg_path=None):
   return r
 
 
+def format_ffmpeg_filter(name, params):
+  """ Build a string to call a FFMpeg filter. """
+  return "%s=%s" % (name,
+                    ":".join("%s=%s" % (k, v) for k, v in params.items()))
+
+
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
   """ Get R128 loudness loudness level and true peak, in LUFS/dBFS. """
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
@@ -76,21 +82,28 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
     cmd.extend(("-i", audio_filepath))
   if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
     cmd.extend(("-filter_threads", "1"))  # single filter thread
-  filter_params = {"framelog": "verbose"}
-  if calc_peak:
-    filter_params["peak"] = "true"
   cmd.extend(("-map", "a"))
+  ebur128_filter_params = {"framelog": "verbose"}
+  if calc_peak:
+    ebur128_filter_params["peak"] = "true"
+  aformat_filter_params = {"sample_fmts": "s16",
+                           "sample_rates": "48000",
+                           "channel_layouts": "stereo"}
   if len(audio_filepaths) > 1:
     cmd.extend(("-filter_complex",
                 "%s; "
                 "%sconcat=n=%u:v=0:a=1[ac]; "
-                "[ac]ebur128=%s" % ("; ".join(("[%u:a]aformat=sample_rates=48000:channel_layouts=stereo[a%u]" % (i, i)) for i in range(len(audio_filepaths))),
-                                    "".join(("[a%u]" % (i)) for i in range(len(audio_filepaths))),
-                                    len(audio_filepaths),
-                                    ":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
+                "[ac]%s" % ("; ".join(("[%u:a]%s[a%u]" % (i,
+                                                          format_ffmpeg_filter("aformat",
+                                                                               aformat_filter_params),
+                                                          i)) for i in range(len(audio_filepaths))),
+                            "".join(("[a%u]" % (i)) for i in range(len(audio_filepaths))),
+                            len(audio_filepaths),
+                            format_ffmpeg_filter("ebur128", ebur128_filter_params))))
 
   else:
-    cmd.extend(("-filter:a", "ebur128=%s" % (":".join("%s=%s" % (k, v) for k, v in filter_params.items()))))
+    cmd.extend(("-filter:a", "%s,%s" % (format_ffmpeg_filter("aformat", aformat_filter_params),
+                                        format_ffmpeg_filter("ebur128", ebur128_filter_params))))
   cmd.extend(("-f", "null", os.devnull))
   logger().debug(subprocess.list2cmdline(cmd))
   output = subprocess.check_output(cmd,
@@ -330,7 +343,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
       if album_peak is None:
         album_peak = "-"
       else:
-        album_peak = "%.1f dBFS" % (album_peak)
+        album_peak = "%.1f dBFS TP" % (album_peak)
     logger().info("Album '%s': loudness = %s, peak = %s" % (album_dir, album_loudness, album_peak))
 
 
