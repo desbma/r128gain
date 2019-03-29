@@ -71,6 +71,17 @@ class TestR128Gain(unittest.TestCase):
           shutil.copyfileobj(in_file, out_file)
     os.remove(flac_zic_filepath)
 
+    flac_filepath = os.path.join(cls.ref_temp_dir.name, "f2.flac")
+    flac_zic_filepath = "%s.zip" % (flac_filepath)
+    download("https://github.com/desbma/r128gain/files/3006101/snippet_with_high_true_peak.zip",
+             flac_zic_filepath)
+    with zipfile.ZipFile(flac_zic_filepath) as zip_file:
+      in_filename = zip_file.namelist()[0]
+      with zip_file.open(in_filename) as in_file:
+        with open(flac_filepath, "wb") as out_file:
+          shutil.copyfileobj(in_file, out_file)
+    os.remove(flac_zic_filepath)
+
     wv_filepath = os.path.join(cls.ref_temp_dir.name, "f.wv")
     cmd = ("sox", "-R",
            "-n", "-b", "16", "-c", "2", "-r", "44.1k", "-t", "wv", wv_filepath,
@@ -91,6 +102,7 @@ class TestR128Gain(unittest.TestCase):
     self.mp3_filepath = os.path.join(self.temp_dir.name, "f.mp3")
     self.m4a_filepath = os.path.join(self.temp_dir.name, "f.m4a")
     self.flac_filepath = os.path.join(self.temp_dir.name, "f.flac")
+    self.flac_filepath_2 = os.path.join(self.temp_dir.name, "f2.flac")
     self.wv_filepath = os.path.join(self.temp_dir.name, "f.wv")
 
     self.ref_levels = {self.vorbis_filepath: (-7.7, 2.6),
@@ -100,6 +112,14 @@ class TestR128Gain(unittest.TestCase):
                        self.flac_filepath: (-26.7, -12.7),
                        self.wv_filepath: (-3.3, -3.0),
                        0: (-11.4, 2.6)}
+    self.ref_levels_2 = {self.vorbis_filepath: (-7.7, 2.6),
+                         self.opus_filepath: (-14.7, None),
+                         self.mp3_filepath: (-13.9, -0.5),
+                         self.m4a_filepath: (-20.6, 0.1),
+                         self.flac_filepath: (-26.7, -12.7),
+                         self.flac_filepath_2: (-6.2, 3.6),
+                         self.wv_filepath: (-3.3, -3.0),
+                         0: (-11.0, 3.6)}
 
     self.max_peak_filepath = self.vorbis_filepath
 
@@ -113,8 +133,9 @@ class TestR128Gain(unittest.TestCase):
                    self.mp3_filepath,
                    self.m4a_filepath,
                    self.flac_filepath,
+                   self.flac_filepath_2,
                    self.wv_filepath)
-      ref_levels = self.ref_levels.copy()
+      ref_levels = self.ref_levels_2.copy()
       if not album_gain:
         del ref_levels[r128gain.ALBUM_GAIN_KEY]
       self.assertEqual(r128gain.scan(filepaths,
@@ -125,7 +146,7 @@ class TestR128Gain(unittest.TestCase):
         # file order should not change results
         filepaths = (self.vorbis_filepath,  # reduce permutation counts to speed up tests
                      self.opus_filepath,
-                     self.flac_filepath)
+                     self.flac_filepath_2)
         ref_levels = r128gain.scan(filepaths,
                                    album_gain=True)
         if IS_TRAVIS:
@@ -408,6 +429,8 @@ class TestR128Gain(unittest.TestCase):
   def test_process_recursive(self):
     ref_loudness_rg2 = -18
     ref_loudness_opus = -23
+
+    os.remove(self.flac_filepath_2)
 
     album_dir1 = os.path.join(self.temp_dir.name, "a")
     os.mkdir(album_dir1)
