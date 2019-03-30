@@ -12,6 +12,7 @@ import concurrent.futures
 import contextlib
 import functools
 import logging
+import math
 import operator
 import os
 import re
@@ -71,9 +72,11 @@ def format_ffmpeg_filter(name, params):
 
 
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
-  """ Get R128 loudness loudness level and sample peak, in LUFS/dBFS. """
+  """ Get R128 loudness loudness level and sample peak. """
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
                                                         ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
+
+  # build command line
   cmd = [ffmpeg_path or "ffmpeg",
          "-hide_banner", "-nostats"]
   for i, audio_filepath in enumerate(audio_filepaths):
@@ -84,42 +87,66 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
     cmd.extend(("-filter_threads", "1"))  # single filter thread
   cmd.extend(("-map", "a"))
   ebur128_filter_params = {"framelog": "verbose"}
-  if calc_peak:
-    ebur128_filter_params["peak"] = "sample"
-  aformat_filter_params = {"sample_fmts": "s16",
-                           "sample_rates": "48000",
-                           "channel_layouts": "stereo"}
+  aformat_r128_filter_params = {"sample_fmts": "s16",
+                                "sample_rates": "48000",
+                                "channel_layouts": "stereo"}
+  aformat_rg_filter_params = {"sample_fmts": "s16"}
+  filter_chain = []
   if len(audio_filepaths) > 1:
-    cmd.extend(("-filter_complex",
-                "%s; "
-                "%sconcat=n=%u:v=0:a=1[ac]; "
-                "[ac]%s" % ("; ".join(("[%u:a]%s[a%u]" % (i,
-                                                          format_ffmpeg_filter("aformat",
-                                                                               aformat_filter_params),
-                                                          i)) for i in range(len(audio_filepaths))),
-                            "".join(("[a%u]" % (i)) for i in range(len(audio_filepaths))),
-                            len(audio_filepaths),
-                            format_ffmpeg_filter("ebur128", ebur128_filter_params))))
-
-  else:
-    filters = [format_ffmpeg_filter("ebur128", ebur128_filter_params)]
+    cmd.append("-filter_complex")
+    for i in range(len(audio_filepaths)):
+      filter_chain.append("[%u:a]%s[a_r128_in_%u]" % (i,
+                                                      format_ffmpeg_filter("aformat",
+                                                                           aformat_r128_filter_params),
+                                                      i))
+      if calc_peak:
+        filter_chain.append("[%u:a]%s[a_rg_in_%u]" % (i,
+                                                      format_ffmpeg_filter("aformat",
+                                                                           aformat_rg_filter_params),
+                                                      i))
+    filter_chain.append("%sconcat=n=%u:v=0:a=1[a_r128_in_concat]" % ("".join(("[a_r128_in_%u]" % (i)) for i in range(len(audio_filepaths))),
+                                                                     len(audio_filepaths)))
+    filter_chain.append("[a_r128_in_concat]%s" % (format_ffmpeg_filter("ebur128", ebur128_filter_params)))
     if calc_peak:
-      filters.insert(0, format_ffmpeg_filter("aformat", aformat_filter_params))
-    cmd.extend(("-filter:a", ",".join(filters)))
+      filter_chain.append("%sconcat=n=%u:v=0:a=1[a_rg_in_concat]" % ("".join(("[a_rg_in_%u]" % (i)) for i in range(len(audio_filepaths))),
+                                                                     len(audio_filepaths)))
+      filter_chain.append("[a_rg_in_concat]replaygain")
+    cmd.append("; ".join(filter_chain))
+  else:
+    if calc_peak:
+      filter_chain.extend((format_ffmpeg_filter("aformat", aformat_rg_filter_params),
+                           "replaygain"))
+    filter_chain.append(format_ffmpeg_filter("ebur128", ebur128_filter_params))
+    cmd.extend(("-filter:a", ",".join(filter_chain)))
   cmd.extend(("-f", "null", os.devnull))
+
+  # run
   logger().debug(subprocess.list2cmdline(cmd))
   output = subprocess.check_output(cmd,
                                    stdin=subprocess.DEVNULL,
                                    stderr=subprocess.STDOUT)
   output = output.decode("utf-8", errors="replace").splitlines()
+
+  if calc_peak:
+    # parse replaygain filter output
+    for line in reversed(output):
+      if line.startswith("[Parsed_replaygain_") and ("] track_peak = " in line):
+        sample_peak = float(line.rsplit("=", 1)[1])
+        break
+  else:
+    sample_peak = None
+
+  # parse r128 filter output
   for i in reversed(range(len(output))):
     line = output[i]
-    if line.startswith("[Parsed_ebur128") and line.endswith("Summary:"):
+    if line.startswith("[Parsed_ebur128_") and line.endswith("Summary:"):
       break
-  output = filter(None, map(str.strip, output[i:]))
+  output = filter(lambda x: x and not x.startswith("[Parsed_replaygain_"),
+                  map(str.strip, output[i:]))
   r128_stats = dict(tuple(map(str.strip, line.split(":", 1))) for line in output if not line.endswith(":"))
   r128_stats = {k: float(v.split(" ", 1)[0]) for k, v in r128_stats.items()}
-  return r128_stats["I"], r128_stats.get("Peak")
+
+  return r128_stats["I"], sample_peak
 
 
 def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None, executor=None):
@@ -203,10 +230,25 @@ def float_to_q7dot8(f):
   return int(round(f * (2 ** 8), 0))
 
 
+def gain_to_scale(gain):
+  """ Convert a gain value in dBFS to a float where 1.0 is 0 dBFS. """
+  return 10 ** (gain / 20)
+
+
+def scale_to_gain(scale):
+  """ Convert a float value to a gain where 0 dBFS is 1.0. """
+  return 20 * math.log10(scale)
+
+
 def tag(filepath, loudness, peak, *,
         album_loudness=None, album_peak=None, opus_output_gain=False):
   """ Tag audio file with loudness metadata. """
   assert((loudness is not None) or (album_loudness is not None))
+
+  if peak is not None:
+    assert(0 < peak <= 1.0)
+    if album_peak is not None:
+      assert(0 < album_peak <= 1.0)
 
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
@@ -222,14 +264,14 @@ def tag(filepath, loudness, peak, *,
                                    text="%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)))
       mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                    desc="REPLAYGAIN_TRACK_PEAK",
-                                   text="%.6f" % (10 ** (peak / 20))))
+                                   text="%.6f" % (peak)))
     if album_loudness is not None:
       mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                    desc="REPLAYGAIN_ALBUM_GAIN",
                                    text="%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)))
       mf.tags.add(mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1,
                                    desc="REPLAYGAIN_ALBUM_PEAK",
-                                   text="%.6f" % (10 ** (album_peak / 20))))
+                                   text="%.6f" % (album_peak)))
     # other legacy formats:
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RGAD
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RVA2
@@ -263,21 +305,20 @@ def tag(filepath, loudness, peak, *,
     # https://wiki.xiph.org/VorbisComment#Replay_Gain
     if loudness is not None:
       mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)
-      # peak_dbfs = 20 * log10(max_sample) <=> max_sample = 10^(peak_dbfs / 20)
-      mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (10 ** (peak / 20))
+      mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (peak)
     if album_loudness is not None:
       mf["REPLAYGAIN_ALBUM_GAIN"] = "%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)
-      mf["REPLAYGAIN_ALBUM_PEAK"] = "%.8f" % (10 ** (album_peak / 20))
+      mf["REPLAYGAIN_ALBUM_PEAK"] = "%.8f" % (album_peak)
 
   elif (isinstance(mf.tags, mutagen.mp4.MP4Tags) or
         isinstance(mf, mutagen.mp4.MP4)):
     # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
     if loudness is not None:
       mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)).encode())
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (peak / 20))).encode())
+      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (peak)).encode())
     if album_loudness is not None:
       mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)).encode())
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (10 ** (album_peak / 20))).encode())
+      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (album_peak)).encode())
 
   else:
     logger().warning("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
@@ -331,7 +372,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
       if peak is None:
         peak = "-"
       else:
-        peak = "%.1f dBFS" % (peak)
+        peak = "%.1f dBFS" % (scale_to_gain(peak))
     logger().info("File '%s': loudness = %s, sample peak = %s" % (audio_filepath, loudness, peak))
 
   # album loudness/peak
@@ -345,7 +386,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
       if album_peak is None:
         album_peak = "-"
       else:
-        album_peak = "%.1f dBFS" % (album_peak)
+        album_peak = "%.1f dBFS" % (scale_to_gain(album_peak))
     logger().info("Album '%s': loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
 
 
@@ -385,6 +426,7 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, skip_t
           album_loudness=album_loudness, album_peak=album_peak,
           opus_output_gain=opus_output_gain)
     except Exception as e:
+      # raise
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                          e.__class__.__qualname__,
                                                          e))
