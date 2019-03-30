@@ -156,9 +156,9 @@ class TestR128Gain(unittest.TestCase):
 
       if album_gain:
         # file order should not change results
-        filepaths = (self.vorbis_filepath,  # reduce permutation counts to speed up tests
-                     self.opus_filepath,
-                     self.flac_filepath_2)
+        filepaths = (self.opus_filepath,  # reduce permutation counts to speed up tests
+                     self.m4a_filepath,
+                     self.mp3_filepath)
         ref_levels = r128gain.scan(filepaths,
                                    album_gain=True)
         if IS_TRAVIS:
@@ -467,7 +467,7 @@ class TestR128Gain(unittest.TestCase):
       f.write(b"\x00")
 
     ref_levels_dir1 = (-13, 1.0)
-    ref_levels_dir2 = (-17.3, 0.707107)
+    ref_levels_dir2 = (-17.3, 0.942810)
 
     # directory tree is as follows (root is self.temp_dir.name):
     # ├── a

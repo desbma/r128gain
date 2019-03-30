@@ -100,17 +100,12 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
                                                                            aformat_r128_filter_params),
                                                       i))
       if calc_peak:
-        filter_chain.append("[%u:a]%s[a_rg_in_%u]" % (i,
-                                                      format_ffmpeg_filter("aformat",
-                                                                           aformat_rg_filter_params),
-                                                      i))
+        filter_chain.append("[%u:a]%s,replaygain" % (i,
+                                                     format_ffmpeg_filter("aformat",
+                                                                          aformat_rg_filter_params)))
     filter_chain.append("%sconcat=n=%u:v=0:a=1[a_r128_in_concat]" % ("".join(("[a_r128_in_%u]" % (i)) for i in range(len(audio_filepaths))),
                                                                      len(audio_filepaths)))
     filter_chain.append("[a_r128_in_concat]%s" % (format_ffmpeg_filter("ebur128", ebur128_filter_params)))
-    if calc_peak:
-      filter_chain.append("%sconcat=n=%u:v=0:a=1[a_rg_in_concat]" % ("".join(("[a_rg_in_%u]" % (i)) for i in range(len(audio_filepaths))),
-                                                                     len(audio_filepaths)))
-      filter_chain.append("[a_rg_in_concat]replaygain")
     cmd.append("; ".join(filter_chain))
   else:
     if calc_peak:
@@ -129,10 +124,13 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
 
   if calc_peak:
     # parse replaygain filter output
+    sample_peaks = []
     for line in reversed(output):
       if line.startswith("[Parsed_replaygain_") and ("] track_peak = " in line):
-        sample_peak = float(line.rsplit("=", 1)[1])
-        break
+        sample_peaks.append(float(line.rsplit("=", 1)[1]))
+        if len(sample_peaks) == len(audio_filepaths):
+          break
+    sample_peak = max(sample_peaks)
   else:
     sample_peak = None
 
