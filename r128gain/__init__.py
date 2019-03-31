@@ -95,15 +95,18 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   if len(audio_filepaths) > 1:
     cmd.append("-filter_complex")
     for i in range(len(audio_filepaths)):
-      filter_chain.append("[%u:a]%s[a_r128_in_%u]" % (i,
-                                                      format_ffmpeg_filter("aformat",
-                                                                           aformat_r128_filter_params),
-                                                      i))
       if calc_peak:
-        filter_chain.append("[%u:a]%s,replaygain" % (i,
-                                                     format_ffmpeg_filter("aformat",
-                                                                          aformat_rg_filter_params)))
-    filter_chain.append("%sconcat=n=%u:v=0:a=1[a_r128_in_concat]" % ("".join(("[a_r128_in_%u]" % (i)) for i in range(len(audio_filepaths))),
+        filter_chain.append("[%u:a]asplit[a_rg_in_%u][a_r128_in_%u]" % (i, i, i))
+        filter_chain.append("[a_rg_in_%u]%s,replaygain,anullsink" % (i,
+                                                                     format_ffmpeg_filter("aformat",
+                                                                                          aformat_rg_filter_params)))
+      else:
+        filter_chain.append("[%u:a]anul[a_r128_in_%u]" % (i, i))
+      filter_chain.append("[a_r128_in_%u]%s,afifo[a_r128_in_fmt_%u]" % (i,
+                                                                        format_ffmpeg_filter("aformat",
+                                                                                             aformat_r128_filter_params),
+                                                                        i))
+    filter_chain.append("%sconcat=n=%u:v=0:a=1[a_r128_in_concat]" % ("".join(("[a_r128_in_fmt_%u]" % (i)) for i in range(len(audio_filepaths))),
                                                                      len(audio_filepaths)))
     filter_chain.append("[a_r128_in_concat]%s" % (format_ffmpeg_filter("ebur128", ebur128_filter_params)))
     cmd.append("; ".join(filter_chain))
@@ -112,6 +115,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
       filter_chain.extend((format_ffmpeg_filter("aformat", aformat_rg_filter_params),
                            "replaygain"))
     filter_chain.append(format_ffmpeg_filter("ebur128", ebur128_filter_params))
+    # filter_chain.append("anullsink")
     cmd.extend(("-filter:a", ",".join(filter_chain)))
   cmd.extend(("-f", "null", os.devnull))
 
