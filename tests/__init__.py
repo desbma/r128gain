@@ -4,6 +4,7 @@ import itertools
 import logging
 import os
 import random
+import re
 import shutil
 import subprocess
 import tempfile
@@ -122,6 +123,13 @@ class TestR128Gain(unittest.TestCase):
 
   def tearDown(self):
     self.temp_dir.cleanup()
+
+  def assertValidGainStr(self, s, places):
+    self.assertIsNotNone(re.match("^-?\d{1,2}\.\d{" + str(places) + "} dB$", s))
+
+  def assertGainStrAlmostEqual(self, s, ref):
+    val = float(s.split(" ", 1)[0])
+    self.assertAlmostEqual(val, ref, delta=0.1)
 
   def test_float_to_q7dot8(self):
     self.assertEqual(r128gain.float_to_q7dot8(-12.34), -3159)
@@ -515,8 +523,10 @@ class TestR128Gain(unittest.TestCase):
                            ["%.8f" % (self.ref_levels[self.vorbis_filepath][1])])
           if album_gain:
             self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                             ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
+            self.assertEqual(len(mf["REPLAYGAIN_ALBUM_GAIN"]), 1)
+            self.assertValidGainStr(mf["REPLAYGAIN_ALBUM_GAIN"][0], 2)
+            self.assertGainStrAlmostEqual(mf["REPLAYGAIN_ALBUM_GAIN"][0],
+                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
             self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
             self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
                              ["%.8f" % (self.ref_levels[self.max_peak_filepath][1])])
@@ -531,8 +541,10 @@ class TestR128Gain(unittest.TestCase):
                            [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[self.opus_filepath][0]))])
           if album_gain:
             self.assertIn("R128_ALBUM_GAIN", mf)
-            self.assertEqual(mf["R128_ALBUM_GAIN"],
-                             [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))])
+            self.assertEqual(len(mf["R128_ALBUM_GAIN"]), 1)
+            self.assertIsInstance(mf["R128_ALBUM_GAIN"][0], str)
+            ref_q7dot8 = r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+            self.assertTrue(ref_q7dot8 - 30 <= int(mf["R128_ALBUM_GAIN"][0]) <= ref_q7dot8 + 30)
           elif i == 0:
             self.assertNotIn("R128_ALBUM_GAIN", mf)
 
@@ -546,8 +558,10 @@ class TestR128Gain(unittest.TestCase):
                            ["%.6f" % (self.ref_levels[self.mp3_filepath][1])])
           if album_gain:
             self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
-                             ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
+            self.assertEqual(len(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text), 1)
+            self.assertValidGainStr(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text[0], 2)
+            self.assertGainStrAlmostEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text[0],
+                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
             self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
             self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
                              ["%.6f" % (self.ref_levels[self.max_peak_filepath][1])])
@@ -568,8 +582,9 @@ class TestR128Gain(unittest.TestCase):
           if album_gain:
             self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN", mf)
             self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"]), 1)
-            self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(),
-                             "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
+            self.assertValidGainStr(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(), 2)
+            self.assertGainStrAlmostEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"][0]).decode(),
+                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
             self.assertIn("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK", mf)
             self.assertEqual(len(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"]), 1)
             self.assertEqual(bytes(mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"][0]).decode(),
@@ -588,8 +603,10 @@ class TestR128Gain(unittest.TestCase):
                            ["%.8f" % (self.ref_levels[self.flac_filepath][1])])
           if album_gain:
             self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                             ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
+            self.assertEqual(len(mf["REPLAYGAIN_ALBUM_GAIN"]), 1)
+            self.assertValidGainStr(mf["REPLAYGAIN_ALBUM_GAIN"][0], 2)
+            self.assertGainStrAlmostEqual(mf["REPLAYGAIN_ALBUM_GAIN"][0],
+                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
             self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
             self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
                              ["%.8f" % (self.ref_levels[self.max_peak_filepath][1])])
@@ -607,8 +624,9 @@ class TestR128Gain(unittest.TestCase):
                            "%.8f" % (self.ref_levels[self.wv_filepath][1]))
           if album_gain:
             self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
-                             "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
+            self.assertValidGainStr(str(mf["REPLAYGAIN_ALBUM_GAIN"]), 2)
+            self.assertGainStrAlmostEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
+                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
             self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
             self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
                              "%.8f" % (self.ref_levels[self.max_peak_filepath][1]))
