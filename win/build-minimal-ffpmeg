@@ -45,6 +45,7 @@ configure() {
               --enable-filter=aformat \
               --enable-filter=anullsink \
               --enable-filter=aresample \
+              --enable-filter=asplit \
               --enable-filter=concat \
               --enable-filter=ebur128 \
               --enable-filter=replaygain \
