@@ -3,16 +3,16 @@ FFMPEG_VERSION    ?= 3.4
 FFMPEG_CACHE_DIR  ?= ${HOME}/.cache/ci/r128gain/ffmpeg-${WINEARCH}
 
 # versions
-PYTHON_VERSION       := 3.4.4
+PYTHON_VERSION       := 3.6.8
 PYTHON_VERSION_MAJOR := $(word 1,$(subst ., ,${PYTHON_VERSION})).$(word 2,$(subst ., ,${PYTHON_VERSION}))
 PYTHON_VERSION_SHORT := $(subst .,,${PYTHON_VERSION_MAJOR})
-CXFREEZE_VERSION     := 5.0.2
+CXFREEZE_VERSION     := 5.1.1
 SOX_VERSION          := 14.4.2
 
 # installers
 DOWNLOAD_DIR            ?= dl
-PYTHON_INSTALLER-win32  := ${DOWNLOAD_DIR}/python-${PYTHON_VERSION}.msi
-PYTHON_INSTALLER-win64  := ${DOWNLOAD_DIR}/python-${PYTHON_VERSION}.amd64.msi
+PYTHON_INSTALLER-win32  := ${DOWNLOAD_DIR}/python-${PYTHON_VERSION}.exe
+PYTHON_INSTALLER-win64  := ${DOWNLOAD_DIR}/python-${PYTHON_VERSION}-amd64.exe
 PYTHON_INSTALLER        := ${PYTHON_INSTALLER-${WINEARCH}}
 CXFREEZE_WHEEL-win32    := ${DOWNLOAD_DIR}/cx_Freeze-${CXFREEZE_VERSION}-cp${PYTHON_VERSION_SHORT}-cp${PYTHON_VERSION_SHORT}m-${WINEARCH}.whl
 CXFREEZE_WHEEL-win64    := ${DOWNLOAD_DIR}/cx_Freeze-${CXFREEZE_VERSION}-cp${PYTHON_VERSION_SHORT}-cp${PYTHON_VERSION_SHORT}m-win_amd64.whl
@@ -123,8 +123,7 @@ sample.ogg: ${DOWNLOAD_DIR}/sample.ogg
 	touch $@
 
 ${PYTHON_INSTALLED}: ${PYTHON_INSTALLER}
-	${WINE} msiexec /i $< /qb > /dev/null 2> /dev/null
-	patch -s ${WINE_DIR}/drive_c/Python${PYTHON_VERSION_SHORT}/Lib/ssl.py < fix-issue26313-python34.patch
+	${WINE} $< /quiet InstallAllUsers=1 TargetDir=$(dir ${PYTHON_INSTALLED})
 	touch $@
 
 ${CXFREEZE_INSTALLED}: ${CXFREEZE_WHEEL} ${PIP_INSTALLED} ${PYTHON_INSTALLED}
@@ -160,11 +159,11 @@ ${PYTHON_INSTALLER}:
 
 ${CXFREEZE_WHEEL-win32}:
 	mkdir -p $(dir $@)
-	${CURL} https://pypi.python.org/packages/67/87/7b376edca85e4cb24c06d7abde7c4b47c6369b2dadb3856ba8d7b6201106/$(notdir $@) > $@
+	${CURL} https://pypi.python.org/packages/3b/04/d68567b8f3265d3936e37c1ee8b3378dc189ec66b4d43650affbefcc69c5/$(notdir $@) > $@
 
 ${CXFREEZE_WHEEL-win64}:
 	mkdir -p $(dir $@)
-	${CURL} https://pypi.python.org/packages/27/b1/04d5c1851995767ee260b835496a1f681774f776665a80e05746f25f5304/$(notdir $@) > $@
+	${CURL} https://pypi.python.org/packages/49/2b/07fc4cfff671ea348b310400e4f13a596e02079afc6bd1c33150b2cf30de/$(notdir $@) > $@
 
 ${7ZIP_INSTALLER}:
 	mkdir -p $(dir $@)
