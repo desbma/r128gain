@@ -40,7 +40,7 @@ env:
     - FFMPEG_VERSION=master
 before_install:
   - "export CI_CACHE_DIR=~/.cache/ci/r128gain"
-  - "if [ $TRAVIS_PYTHON_VERSION = '3.4' -a $FFMPEG_VERSION = '3.4' ]; then WINDOWS=1; fi"
+  - "if [ $TRAVIS_PYTHON_VERSION = '3.6' -a $FFMPEG_VERSION = '3.4' ]; then WINDOWS=1; fi"
   - "if [ $WINDOWS -eq 1 ]; then curl https://dl.winehq.org/wine-builds/Release.key | sudo apt-key add - && sudo apt-add-repository https://dl.winehq.org/wine-builds/ubuntu/; fi"
   - "sudo apt-get -q update"
   - "sudo apt-get -V install yasm"
