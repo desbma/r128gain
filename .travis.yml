@@ -87,7 +87,7 @@ deploy:
       tags: true
       branch: master
       python: "3.6"
-      condition: "$WINDOWS -eq 0 -a $FFMPEG_VERSION = master"
+      condition: "($WINDOWS -eq 0) && ($FFMPEG_VERSION = master)"
 notifications:
   email:
     recipients:
