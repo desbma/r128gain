@@ -169,13 +169,19 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
       enable_ffmpeg_threading = False
       asynchronous = True
 
+    loudness_tags = tuple(map(has_loudness_tag, audio_filepaths))
+
+    # remove invalid files
+    audio_filepaths = tuple(audio_filepath for (audio_filepath,
+                                                has_tags) in zip(audio_filepaths,
+                                                                 loudness_tags) if has_tags is not None)
+    loudness_tags = tuple(filter(None, loudness_tags))
+
     futures = {}
     if album_gain:
-      if skip_tagged and all(map(operator.itemgetter(1),
-                                 map(has_loudness_tag,
-                                     audio_filepaths))):
+      if skip_tagged and all(map(operator.itemgetter(1), loudness_tags)):
         logger().info("All files already have an album gain tag, skipping album gain scan")
-      else:
+      elif audio_filepaths:
         calc_album_peak = any(map(lambda x: os.path.splitext(x)[-1].lower() != ".opus",
                                   audio_filepaths))
         futures[ALBUM_GAIN_KEY] = executor.submit(get_r128_loudness,
@@ -212,7 +218,7 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
         logger().warning("Failed to analyze file '%s': %s %s" % (audio_filepath,
                                                                  e.__class__.__qualname__,
                                                                  e))
-    if album_gain:
+    if album_gain and audio_filepaths:
       try:
         r128_data[ALBUM_GAIN_KEY] = futures[ALBUM_GAIN_KEY].result()
       except KeyError:
@@ -331,10 +337,16 @@ def tag(filepath, loudness, peak, *,
 
 
 def has_loudness_tag(filepath):
-  """ Return a pair of booleans indicating if filepath has a RG or R128 track/album tag. """
+  """ Return a pair of booleans indicating if filepath has a RG or R128 track/album tag, or None if file is invalid. """
   track, album = False, False
 
-  mf = mutagen.File(filepath)
+  try:
+    mf = mutagen.File(filepath)
+  except mutagen.MutagenError as e:
+    logger().warning("File '%s' %s: %s" % (filepath,
+                                           e.__class__.__qualname__,
+                                           e))
+    return
 
   if (isinstance(mf.tags, mutagen.id3.ID3) or
           isinstance(mf, mutagen.id3.ID3FileType)):
@@ -358,6 +370,8 @@ def has_loudness_tag(filepath):
   else:
     logger().warning("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
                                                                   filepath))
+    return
+
   return track, album
 
 

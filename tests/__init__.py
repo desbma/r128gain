@@ -57,6 +57,10 @@ class TestR128Gain(unittest.TestCase):
     download("http://www.largesound.com/ashborytour/sound/brobob.mp3",
              mp3_filepath)
 
+    invalid_mp3_filepath = os.path.join(cls.ref_temp_dir.name, "invalid.mp3")
+    download("https://www.dropbox.com/s/bdm7wyqaj3ij8ci/Death%20Star.mp3?dl=1",
+             invalid_mp3_filepath)
+
     m4a_filepath = os.path.join(cls.ref_temp_dir.name, "f.m4a")
     download("https://auphonic.com/media/audio-examples/01.auphonic-demo-unprocessed.m4a",
              m4a_filepath)
@@ -103,6 +107,7 @@ class TestR128Gain(unittest.TestCase):
     self.vorbis_filepath = os.path.join(self.temp_dir.name, "f.ogg")
     self.opus_filepath = os.path.join(self.temp_dir.name, "f.opus")
     self.mp3_filepath = os.path.join(self.temp_dir.name, "f.mp3")
+    self.invalid_mp3_filepath = os.path.join(self.temp_dir.name, "invalid.mp3")
     self.m4a_filepath = os.path.join(self.temp_dir.name, "f.m4a")
     self.flac_filepath = os.path.join(self.temp_dir.name, "f.flac")
     self.flac_filepath_2 = os.path.join(self.temp_dir.name, "f2.flac")
@@ -290,6 +295,8 @@ class TestR128Gain(unittest.TestCase):
                      self.flac_filepath,
                      self.wv_filepath):
           self.assertEqual(r128gain.has_loudness_tag(file), (True, False))
+
+    self.assertEqual(r128gain.has_loudness_tag(self.invalid_mp3_filepath), None)
 
   def test_process(self):
     ref_loudness_rg2 = -18
