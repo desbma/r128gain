@@ -51,7 +51,10 @@ def get_ffmpeg_lib_versions(ffmpeg_path=None):
   """
   r = collections.OrderedDict()
   cmd = (ffmpeg_path or "ffmpeg", "-version")
-  output = subprocess.check_output(cmd, universal_newlines=True)
+  output = subprocess.run(cmd,
+                          check=True,
+                          stdout=subprocess.PIPE,
+                          universal_newlines=True).stdout
   output = output.splitlines()
   lib_version_regex = re.compile("^\s*(lib[a-z]+)\s+([0-9]+).\s*([0-9]+).\s*([0-9]+)\s+")
   for line in output:
@@ -121,9 +124,10 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
 
   # run
   logger().debug(subprocess.list2cmdline(cmd))
-  output = subprocess.check_output(cmd,
-                                   stdin=subprocess.DEVNULL,
-                                   stderr=subprocess.STDOUT)
+  output = subprocess.run(cmd,
+                          check=True,
+                          stdin=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE).stderr
   output = output.decode("utf-8", errors="replace").splitlines()
 
   if calc_peak:

@@ -27,7 +27,7 @@ r128gain can also be used as a Python module from other Python projects to scan 
 
 ## Installation
 
-r128gain requires [Python](https://www.python.org/downloads/) >= 3.4 and [FFmpeg](https://www.ffmpeg.org/download.html) >= 2.8.
+r128gain requires [Python](https://www.python.org/downloads/) >= 3.5 and [FFmpeg](https://www.ffmpeg.org/download.html) >= 2.8.
 
 ### Standalone Windows executable
 

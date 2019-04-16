@@ -93,13 +93,13 @@ class TestR128Gain(unittest.TestCase):
     cmd = ("sox", "-R", "-n",
            "-b", "16", "-c", "2", "-r", "44.1k", "-t", "wv", wv_filepath,
            "synth", "30", "sine", "1-5000")
-    subprocess.check_call(cmd)
+    subprocess.run(cmd, check=True)
 
     silence_wv_filepath = os.path.join(cls.ref_temp_dir.name, "silence.wv")
     cmd = ("sox", "-R", "-n",
            "-b", "16", "-c", "2", "-r", "44.1k", "-t", "wv", silence_wv_filepath,
            "trim", "0", "10")
-    subprocess.check_call(cmd)
+    subprocess.run(cmd, check=True)
 
     silence_mp3_filepath = os.path.join(cls.ref_temp_dir.name, "silence.mp3")
     download("https://www.dropbox.com/s/hnkmioxwu56dgs0/04-There%27s%20No%20Other%20Way.mp3?dl=1",

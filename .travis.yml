@@ -6,7 +6,6 @@ cache:
   directories:
     - $HOME/.cache/ci/r128gain
 python:
-  - "3.4"
   - "3.5"
   - "3.5-dev"
   - "3.6"
