@@ -2,6 +2,7 @@
 
 import itertools
 import logging
+import math
 import os
 import random
 import re
@@ -39,6 +40,7 @@ def download(url, filepath):
     shutil.copyfile(filepath, cache_filepath)
 
 
+@unittest.skipUnless(shutil.which("sox") is not None, "SoX binary is needed")
 class TestR128Gain(unittest.TestCase):
 
   @classmethod
@@ -88,10 +90,20 @@ class TestR128Gain(unittest.TestCase):
     os.remove(flac_zic_filepath)
 
     wv_filepath = os.path.join(cls.ref_temp_dir.name, "f.wv")
-    cmd = ("sox", "-R",
-           "-n", "-b", "16", "-c", "2", "-r", "44.1k", "-t", "wv", wv_filepath,
+    cmd = ("sox", "-R", "-n",
+           "-b", "16", "-c", "2", "-r", "44.1k", "-t", "wv", wv_filepath,
            "synth", "30", "sine", "1-5000")
     subprocess.check_call(cmd)
+
+    silence_wv_filepath = os.path.join(cls.ref_temp_dir.name, "silence.wv")
+    cmd = ("sox", "-R", "-n",
+           "-b", "16", "-c", "2", "-r", "44.1k", "-t", "wv", silence_wv_filepath,
+           "trim", "0", "10")
+    subprocess.check_call(cmd)
+
+    silence_mp3_filepath = os.path.join(cls.ref_temp_dir.name, "silence.mp3")
+    download("https://www.dropbox.com/s/hnkmioxwu56dgs0/04-There%27s%20No%20Other%20Way.mp3?dl=1",
+             silence_mp3_filepath)
 
   @classmethod
   def tearDownClass(cls):
@@ -112,6 +124,8 @@ class TestR128Gain(unittest.TestCase):
     self.flac_filepath = os.path.join(self.temp_dir.name, "f.flac")
     self.flac_filepath_2 = os.path.join(self.temp_dir.name, "f2.flac")
     self.wv_filepath = os.path.join(self.temp_dir.name, "f.wv")
+    self.silence_wv_filepath = os.path.join(self.temp_dir.name, "silence.wv")
+    self.silence_mp3_filepath = os.path.join(self.temp_dir.name, "silence.mp3")
 
     self.ref_levels = {self.vorbis_filepath: (-7.7, 1.0),
                        self.opus_filepath: (-14.7, None),
@@ -122,7 +136,9 @@ class TestR128Gain(unittest.TestCase):
                        0: (-11.4, 1.0)}
     self.ref_levels_2 = self.ref_levels.copy()
     self.ref_levels_2.update({self.flac_filepath_2: (-6.2, 1.0),
-                              0: (-11.0, 1.0)})
+                              self.silence_wv_filepath: (-70.0, 0.000031),
+                              self.silence_mp3_filepath: (-70.0, 0.0),
+                              0: (-10.9, 1.0)})
 
     self.max_peak_filepath = self.vorbis_filepath
 
@@ -147,6 +163,7 @@ class TestR128Gain(unittest.TestCase):
     self.assertAlmostEqual(r128gain.gain_to_scale(12.34), 4.139997, places=6)
 
   def test_scale_to_gain(self):
+    self.assertEqual(r128gain.scale_to_gain(0.0), -math.inf)
     self.assertAlmostEqual(r128gain.scale_to_gain(0.123456), -18.169756, places=6)
     self.assertAlmostEqual(r128gain.scale_to_gain(1.0), 0.0)
     self.assertAlmostEqual(r128gain.scale_to_gain(1.234567), 1.830293, places=6)
@@ -159,7 +176,9 @@ class TestR128Gain(unittest.TestCase):
                    self.m4a_filepath,
                    self.flac_filepath,
                    self.flac_filepath_2,
-                   self.wv_filepath)
+                   self.wv_filepath,
+                   self.silence_wv_filepath,
+                   self.silence_mp3_filepath)
       ref_levels = self.ref_levels_2.copy()
       if not album_gain:
         del ref_levels[r128gain.ALBUM_GAIN_KEY]
@@ -193,18 +212,20 @@ class TestR128Gain(unittest.TestCase):
     ref_loudness_opus = -23
     expected_track_gain_opus = ref_loudness_opus - loudness
 
+    files = (self.vorbis_filepath,
+             self.opus_filepath,
+             self.mp3_filepath,
+             self.m4a_filepath,
+             self.flac_filepath,
+             self.wv_filepath)
+
     for i, delete_tags in zip(range(3), (False, True, False)):
       # i = 0 : add RG tag in existing tags
       # i = 1 : add RG tag with no existing tags
       # i = 2 : overwrites RG tag in existing tags
       with self.subTest(iteration=i + 1, delete_tags=delete_tags):
         if delete_tags:
-          for file in (self.vorbis_filepath,
-                       self.opus_filepath,
-                       self.mp3_filepath,
-                       self.m4a_filepath,
-                       self.flac_filepath,
-                       self.wv_filepath):
+          for file in files:
             self.assertEqual(r128gain.has_loudness_tag(file), (True, False))
             mf = mutagen.File(file)
             mf.delete()
@@ -288,12 +309,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
         self.assertEqual(str(mf["REPLAYGAIN_TRACK_PEAK"]), "%.8f" % (peak))
 
-        for file in (self.vorbis_filepath,
-                     self.opus_filepath,
-                     self.mp3_filepath,
-                     self.m4a_filepath,
-                     self.flac_filepath,
-                     self.wv_filepath):
+        for file in files:
           self.assertEqual(r128gain.has_loudness_tag(file), (True, False))
 
     self.assertEqual(r128gain.has_loudness_tag(self.invalid_mp3_filepath), None)
@@ -302,27 +318,24 @@ class TestR128Gain(unittest.TestCase):
     ref_loudness_rg2 = -18
     ref_loudness_opus = -23
 
+    files = (self.vorbis_filepath,
+             self.opus_filepath,
+             self.mp3_filepath,
+             self.m4a_filepath,
+             self.flac_filepath,
+             self.wv_filepath)
+
     for i, skip_tagged in enumerate((True, False, True)):
 
       if i == 0:
-        for file in (self.vorbis_filepath,
-                     self.opus_filepath,
-                     self.mp3_filepath,
-                     self.m4a_filepath,
-                     self.flac_filepath,
-                     self.wv_filepath):
+        for file in files:
           self.assertEqual(r128gain.has_loudness_tag(file), (False, False))
 
       for album_gain in (False, True):
         with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), \
                 unittest.mock.patch("r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness) as get_r128_loudness_mock:
 
-          r128gain.process((self.vorbis_filepath,
-                            self.opus_filepath,
-                            self.mp3_filepath,
-                            self.m4a_filepath,
-                            self.flac_filepath,
-                            self.wv_filepath),
+          r128gain.process(files,
                            album_gain=album_gain,
                            skip_tagged=skip_tagged)
 
@@ -335,12 +348,7 @@ class TestR128Gain(unittest.TestCase):
           else:
             self.assertEqual(get_r128_loudness_mock.call_count, 6)
 
-          for file in (self.vorbis_filepath,
-                       self.opus_filepath,
-                       self.mp3_filepath,
-                       self.m4a_filepath,
-                       self.flac_filepath,
-                       self.wv_filepath):
+          for file in files:
             self.assertEqual(r128gain.has_loudness_tag(file), (True, album_gain or (i > 0)))
 
           mf = mutagen.File(self.vorbis_filepath)
@@ -514,9 +522,9 @@ class TestR128Gain(unittest.TestCase):
           elif album_gain and skip_tagged:
             self.assertEqual(get_r128_loudness_mock.call_count, 3)
           elif album_gain and not skip_tagged:
-            self.assertEqual(get_r128_loudness_mock.call_count, 13)
+            self.assertEqual(get_r128_loudness_mock.call_count, 15)
           else:
-            self.assertEqual(get_r128_loudness_mock.call_count, 10)
+            self.assertEqual(get_r128_loudness_mock.call_count, 12)
 
           # root tmp dir
 

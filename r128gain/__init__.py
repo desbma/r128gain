@@ -245,6 +245,8 @@ def gain_to_scale(gain):
 
 def scale_to_gain(scale):
   """ Convert a float value to a gain where 0 dBFS is 1.0. """
+  if scale == 0:
+    return -math.inf
   return 20 * math.log10(scale)
 
 
@@ -254,9 +256,9 @@ def tag(filepath, loudness, peak, *,
   assert((loudness is not None) or (album_loudness is not None))
 
   if peak is not None:
-    assert(0 < peak <= 1.0)
+    assert(0 <= peak <= 1.0)
     if album_peak is not None:
-      assert(0 < album_peak <= 1.0)
+      assert(0 <= album_peak <= 1.0)
 
   logger().info("Tagging file '%s'" % (filepath))
   mf = mutagen.File(filepath)
