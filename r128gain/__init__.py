@@ -255,7 +255,7 @@ def scale_to_gain(scale):
 
 
 def tag(filepath, loudness, peak, *,
-        album_loudness=None, album_peak=None, opus_output_gain=False):
+        album_loudness=None, album_peak=None, opus_output_gain=False, add_seconds=None):
   """ Tag audio file with loudness metadata. """
   assert((loudness is not None) or (album_loudness is not None))
 
@@ -265,6 +265,7 @@ def tag(filepath, loudness, peak, *,
       assert(0 <= album_peak <= 1.0)
 
   logger().info("Tagging file '%s'" % (filepath))
+  original_mtime = os.stat(filepath).st_mtime
   mf = mutagen.File(filepath)
   if (mf is not None) and (mf.tags is None):
     mf.add_tags()
@@ -340,6 +341,13 @@ def tag(filepath, loudness, peak, *,
     return
 
   mf.save()
+  # preserve original modification time, possibly increasing by some seconds
+  if add_seconds is not None:
+    if add_seconds == 0:
+      logger().info("Resetting modification time for file '{}'".format(filepath))
+    else:
+      logger().info("Resetting modification time for file '{}' (adding {} seconds)".format(filepath, add_seconds))
+    os.utime(filepath, times=(os.stat(filepath).st_atime, original_mtime + add_seconds))
 
 
 def has_loudness_tag(filepath):
@@ -412,8 +420,8 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
     logger().info("Album '%s': loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
 
 
-def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, skip_tagged=False, thread_count=None,
-            ffmpeg_path=None, dry_run=False, report=False):
+def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, add_seconds=None, skip_tagged=False, 
+            thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   # analyze files
   r128_data = scan(audio_filepaths,
                    album_gain=album_gain,
@@ -446,7 +454,7 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, skip_t
     try:
       tag(audio_filepath, loudness, peak,
           album_loudness=album_loudness, album_peak=album_peak,
-          opus_output_gain=opus_output_gain)
+          opus_output_gain=opus_output_gain, add_seconds=add_seconds)
     except Exception as e:
       # raise
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
@@ -454,8 +462,8 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, skip_t
                                                          e))
 
 
-def process_recursive(directories, *, album_gain=False, opus_output_gain=False, skip_tagged=False, thread_count=None,
-                      ffmpeg_path=None, dry_run=False, report=False):
+def process_recursive(directories, *, album_gain=False, opus_output_gain=False, add_seconds=None, skip_tagged=False, 
+                      thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   if thread_count is None:
     try:
       thread_count = len(os.sched_getaffinity(0))
@@ -525,7 +533,7 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
               try:
                 tag(audio_filepath, loudness, peak,
                     album_loudness=album_loudness, album_peak=album_peak,
-                    opus_output_gain=opus_output_gain)
+                    opus_output_gain=opus_output_gain, add_seconds=add_seconds)
               except Exception as e:
                 logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                                    e.__class__.__qualname__,
@@ -578,6 +586,17 @@ def cl_main():
                                   Opus decoders so this should improve compatibility with players not supporting the
                                   R128 tags.
                                   Warning: This is EXPERIMENTAL, only use if you fully understand the implications.""")
+  arg_parser.add_argument("-p",
+                          "--preserve-times",
+                          action="store_true",
+                          help="Preserve modification times of tagged files")
+  arg_parser.add_argument("-P",
+                          dest="add_seconds",
+                          action="store",
+                          type=int,
+                          default=None,
+                          help="""Preserve modification times of tagged files but add ADD_SECONDS seconds to both.
+                                  Potentially useful for synching utilities to detect that file was modified.""")
   arg_parser.add_argument("-c",
                           "--thread-count",
                           type=int,
@@ -600,6 +619,10 @@ def cl_main():
                           dest="verbosity",
                           help="Level of logging output")
   args = arg_parser.parse_args()
+
+  # -p is basically -P with a fixed value of zero
+  if args.preserve_times and args.add_seconds is None:
+    args.add_seconds = 0
 
   # setup logger
   logging_level = {"warning": logging.WARNING,
@@ -630,6 +653,7 @@ def cl_main():
       process_recursive(args.path,
                         album_gain=args.album_gain,
                         opus_output_gain=args.opus_output_gain,
+                        add_seconds=args.add_seconds,
                         skip_tagged=args.skip_tagged,
                         thread_count=args.thread_count,
                         ffmpeg_path=args.ffmpeg_path,
@@ -639,6 +663,7 @@ def cl_main():
       process(args.path,
               album_gain=args.album_gain,
               opus_output_gain=args.opus_output_gain,
+              add_seconds=args.add_seconds,
               skip_tagged=args.skip_tagged,
               thread_count=args.thread_count,
               ffmpeg_path=args.ffmpeg_path,
