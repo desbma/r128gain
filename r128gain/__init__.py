@@ -265,7 +265,7 @@ def tag(filepath, loudness, peak, *,
       assert(0 <= album_peak <= 1.0)
 
   logger().info("Tagging file '%s'" % (filepath))
-  original_mtime = os.stat(filepath).st_mtime
+  original_mtime = os.path.getmtime(filepath)
   mf = mutagen.File(filepath)
   if (mf is not None) and (mf.tags is None):
     mf.add_tags()
@@ -344,9 +344,9 @@ def tag(filepath, loudness, peak, *,
   # preserve original modification time, possibly increasing by some seconds
   if add_seconds is not None:
     if add_seconds == 0:
-      logger().info("Resetting modification time for file '{}'".format(filepath))
+      logger().debug("Restoring modification time for file '{}'".format(filepath))
     else:
-      logger().info("Resetting modification time for file '{}' (adding {} seconds)".format(filepath, add_seconds))
+      logger().debug("Restoring modification time for file '{}' (adding {} seconds)".format(filepath, add_seconds))
     os.utime(filepath, times=(os.stat(filepath).st_atime, original_mtime + add_seconds))
 
 
@@ -588,14 +588,14 @@ def cl_main():
                                   Warning: This is EXPERIMENTAL, only use if you fully understand the implications.""")
   arg_parser.add_argument("-p",
                           "--preserve-times",
-                          action="store_true",
-                          help="Preserve modification times of tagged files")
-  arg_parser.add_argument("-P",
                           dest="add_seconds",
+                          nargs="?",
+                          #choices=(0,1),
+                          const=0,
                           action="store",
                           type=int,
                           default=None,
-                          help="""Preserve modification times of tagged files but add ADD_SECONDS seconds to both.
+                          help="""Preserve modification times of tagged files. Optionally add ADD_SECONDS seconds.
                                   Potentially useful for synching utilities to detect that file was modified.""")
   arg_parser.add_argument("-c",
                           "--thread-count",
@@ -619,10 +619,6 @@ def cl_main():
                           dest="verbosity",
                           help="Level of logging output")
   args = arg_parser.parse_args()
-
-  # -p is basically -P with a fixed value of zero
-  if args.preserve_times and args.add_seconds is None:
-    args.add_seconds = 0
 
   # setup logger
   logging_level = {"warning": logging.WARNING,
