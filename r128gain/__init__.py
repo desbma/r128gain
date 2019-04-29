@@ -255,7 +255,7 @@ def scale_to_gain(scale):
 
 
 def tag(filepath, loudness, peak, *,
-        album_loudness=None, album_peak=None, opus_output_gain=False, add_seconds=None):
+        album_loudness=None, album_peak=None, opus_output_gain=False, mtime_second_offset=None):
   """ Tag audio file with loudness metadata. """
   assert((loudness is not None) or (album_loudness is not None))
 
@@ -341,13 +341,15 @@ def tag(filepath, loudness, peak, *,
     return
 
   mf.save()
-  # preserve original modification time, possibly increasing by some seconds
-  if add_seconds is not None:
-    if add_seconds == 0:
+
+  # preserve original modification time, possibly increasing it by some seconds
+  if mtime_second_offset is not None:
+    if mtime_second_offset == 0:
       logger().debug("Restoring modification time for file '{}'".format(filepath))
     else:
-      logger().debug("Restoring modification time for file '{}' (adding {} seconds)".format(filepath, add_seconds))
-    os.utime(filepath, times=(os.stat(filepath).st_atime, original_mtime + add_seconds))
+      logger().debug("Restoring modification time for file '{}' (adding {} seconds)".format(filepath,
+                                                                                            mtime_second_offset))
+    os.utime(filepath, times=(os.stat(filepath).st_atime, original_mtime + mtime_second_offset))
 
 
 def has_loudness_tag(filepath):
@@ -420,7 +422,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
     logger().info("Album '%s': loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
 
 
-def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, add_seconds=None, skip_tagged=False, 
+def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None, skip_tagged=False,
             thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   # analyze files
   r128_data = scan(audio_filepaths,
@@ -454,7 +456,7 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, add_se
     try:
       tag(audio_filepath, loudness, peak,
           album_loudness=album_loudness, album_peak=album_peak,
-          opus_output_gain=opus_output_gain, add_seconds=add_seconds)
+          opus_output_gain=opus_output_gain, mtime_second_offset=mtime_second_offset)
     except Exception as e:
       # raise
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
@@ -462,8 +464,8 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, add_se
                                                          e))
 
 
-def process_recursive(directories, *, album_gain=False, opus_output_gain=False, add_seconds=None, skip_tagged=False, 
-                      thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
+def process_recursive(directories, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None,
+                      skip_tagged=False, thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   if thread_count is None:
     try:
       thread_count = len(os.sched_getaffinity(0))
@@ -533,7 +535,8 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
               try:
                 tag(audio_filepath, loudness, peak,
                     album_loudness=album_loudness, album_peak=album_peak,
-                    opus_output_gain=opus_output_gain, add_seconds=add_seconds)
+                    opus_output_gain=opus_output_gain,
+                    mtime_second_offset=mtime_second_offset)
               except Exception as e:
                 logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                                    e.__class__.__qualname__,
@@ -588,15 +591,14 @@ def cl_main():
                                   Warning: This is EXPERIMENTAL, only use if you fully understand the implications.""")
   arg_parser.add_argument("-p",
                           "--preserve-times",
-                          dest="add_seconds",
+                          dest="mtime_second_offset",
                           nargs="?",
-                          #choices=(0,1),
                           const=0,
                           action="store",
                           type=int,
                           default=None,
-                          help="""Preserve modification times of tagged files. Optionally add ADD_SECONDS seconds.
-                                  Potentially useful for synching utilities to detect that file was modified.""")
+                          help="""Preserve modification times of tagged files,
+                                  optionally adding MTIME_SECOND_OFFSET seconds. """)
   arg_parser.add_argument("-c",
                           "--thread-count",
                           type=int,
@@ -649,7 +651,7 @@ def cl_main():
       process_recursive(args.path,
                         album_gain=args.album_gain,
                         opus_output_gain=args.opus_output_gain,
-                        add_seconds=args.add_seconds,
+                        mtime_second_offset=args.mtime_second_offset,
                         skip_tagged=args.skip_tagged,
                         thread_count=args.thread_count,
                         ffmpeg_path=args.ffmpeg_path,
@@ -659,7 +661,7 @@ def cl_main():
       process(args.path,
               album_gain=args.album_gain,
               opus_output_gain=args.opus_output_gain,
-              add_seconds=args.add_seconds,
+              mtime_second_offset=args.mtime_second_offset,
               skip_tagged=args.skip_tagged,
               thread_count=args.thread_count,
               ffmpeg_path=args.ffmpeg_path,
