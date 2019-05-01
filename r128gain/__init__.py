@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 
 import mutagen
 
@@ -492,7 +491,7 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
       to_del = None
       for (directory, audio_filepaths), current_dir_futures in dir_futures.items():
         done, not_done = concurrent.futures.wait(current_dir_futures.values(),
-                                                 timeout=0)
+                                                 return_when=concurrent.futures.FIRST_COMPLETED)
         if not not_done:
           # get analysis results for this directory
           r128_data = {}
@@ -548,9 +547,6 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
 
       if to_del is not None:
         del dir_futures[to_del]
-      else:
-        # be nice with CPU usage, the real CPU intensive work is done by the executor
-        time.sleep(0.3)
 
 
 def cl_main():
