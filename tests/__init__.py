@@ -55,6 +55,10 @@ class TestR128Gain(unittest.TestCase):
     download("https://people.xiph.org/~giles/2012/opus/ehren-paper_lights-64.opus",
              opus_filepath)
 
+    cls.ref_temp_dir2 = tempfile.TemporaryDirectory()
+    opus_filepath2 = os.path.join(cls.ref_temp_dir2.name, "f2.opus")
+    shutil.copyfile(opus_filepath, opus_filepath2)
+
     mp3_filepath = os.path.join(cls.ref_temp_dir.name, "f.mp3")
     download("http://www.largesound.com/ashborytour/sound/brobob.mp3",
              mp3_filepath)
@@ -108,6 +112,7 @@ class TestR128Gain(unittest.TestCase):
   @classmethod
   def tearDownClass(cls):
     cls.ref_temp_dir.cleanup()
+    cls.ref_temp_dir2.cleanup()
 
   def setUp(self):
     self.maxDiff = None
@@ -116,8 +121,13 @@ class TestR128Gain(unittest.TestCase):
     for src_filename in os.listdir(__class__.ref_temp_dir.name):
       shutil.copy(os.path.join(__class__.ref_temp_dir.name, src_filename), self.temp_dir.name)
 
+    self.temp_dir2 = tempfile.TemporaryDirectory()
+    for src_filename in os.listdir(__class__.ref_temp_dir2.name):
+      shutil.copy(os.path.join(__class__.ref_temp_dir2.name, src_filename), self.temp_dir2.name)
+
     self.vorbis_filepath = os.path.join(self.temp_dir.name, "f.ogg")
     self.opus_filepath = os.path.join(self.temp_dir.name, "f.opus")
+    self.opus_filepath2 = os.path.join(self.temp_dir2.name, "f2.opus")
     self.mp3_filepath = os.path.join(self.temp_dir.name, "f.mp3")
     self.invalid_mp3_filepath = os.path.join(self.temp_dir.name, "invalid.mp3")
     self.m4a_filepath = os.path.join(self.temp_dir.name, "f.m4a")
@@ -144,6 +154,7 @@ class TestR128Gain(unittest.TestCase):
 
   def tearDown(self):
     self.temp_dir.cleanup()
+    self.temp_dir2.cleanup()
 
   def assertValidGainStr(self, s, places):
     self.assertIsNotNone(re.match("^-?\d{1,2}\.\d{" + str(places) + "} dB$", s))
@@ -170,6 +181,7 @@ class TestR128Gain(unittest.TestCase):
 
   def test_scan(self):
     for album_gain in (False, True):
+      # bunch of different files
       filepaths = (self.vorbis_filepath,
                    self.opus_filepath,
                    self.mp3_filepath,
@@ -185,6 +197,16 @@ class TestR128Gain(unittest.TestCase):
       self.assertEqual(r128gain.scan(filepaths,
                                      album_gain=album_gain),
                        ref_levels)
+
+      # opus only files
+      filepaths = (self.opus_filepath, self.opus_filepath2)
+      ref_levels_opus = {self.opus_filepath: self.ref_levels[self.opus_filepath],
+                         self.opus_filepath2: self.ref_levels[self.opus_filepath]}
+      if album_gain:
+        ref_levels_opus[r128gain.ALBUM_GAIN_KEY] = self.ref_levels[self.opus_filepath]
+      self.assertEqual(r128gain.scan(filepaths,
+                                     album_gain=album_gain),
+                       ref_levels_opus)
 
       if album_gain:
         # file order should not change results

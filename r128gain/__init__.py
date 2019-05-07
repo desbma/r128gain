@@ -103,7 +103,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
                                                                      format_ffmpeg_filter("aformat",
                                                                                           aformat_rg_filter_params)))
       else:
-        filter_chain.append("[%u:a]anul[a_r128_in_%u]" % (i, i))
+        filter_chain.append("[%u:a]anull[a_r128_in_%u]" % (i, i))
       filter_chain.append("[a_r128_in_%u]%s,afifo[a_r128_in_fmt_%u]" % (i,
                                                                         format_ffmpeg_filter("aformat",
                                                                                              aformat_r128_filter_params),
