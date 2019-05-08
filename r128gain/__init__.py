@@ -440,7 +440,8 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
     if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
       progress = cm.enter_context(tqdm.tqdm(total=len(audio_filepaths) + int(album_gain),
                                             desc="Analyzing audio loudness",
-                                            unit=" files"))
+                                            unit=" files",
+                                            leave=False))
       cm.enter_context(tqdm_logging.redirect_logging(progress))
     else:
       progress = None
@@ -500,7 +501,8 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
     if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
       progress = cm.enter_context(tqdm.tqdm(total=0,
                                             desc="Analyzing audio loudness",
-                                            unit=" files"))
+                                            unit=" files",
+                                            leave=False))
       cm.enter_context(tqdm_logging.redirect_logging(progress))
     else:
       progress = None
