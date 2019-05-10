@@ -703,30 +703,26 @@ def cl_main():
                                    for lib_name, lib_version in ffmpeg_lib_versions.items())))
 
   # main
-  try:
-    if args.recursive:
-      process_recursive(args.path,
-                        album_gain=args.album_gain,
-                        opus_output_gain=args.opus_output_gain,
-                        mtime_second_offset=args.mtime_second_offset,
-                        skip_tagged=args.skip_tagged,
-                        thread_count=args.thread_count,
-                        ffmpeg_path=args.ffmpeg_path,
-                        dry_run=args.dry_run,
-                        report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
-    else:
-      process(args.path,
-              album_gain=args.album_gain,
-              opus_output_gain=args.opus_output_gain,
-              mtime_second_offset=args.mtime_second_offset,
-              skip_tagged=args.skip_tagged,
-              thread_count=args.thread_count,
-              ffmpeg_path=args.ffmpeg_path,
-              dry_run=args.dry_run,
-              report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
-  except RuntimeError as e:
-    logging.getLogger().error(e)
-    exit(1)
+  if args.recursive:
+    process_recursive(args.path,
+                      album_gain=args.album_gain,
+                      opus_output_gain=args.opus_output_gain,
+                      mtime_second_offset=args.mtime_second_offset,
+                      skip_tagged=args.skip_tagged,
+                      thread_count=args.thread_count,
+                      ffmpeg_path=args.ffmpeg_path,
+                      dry_run=args.dry_run,
+                      report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
+  else:
+    process(args.path,
+            album_gain=args.album_gain,
+            opus_output_gain=args.opus_output_gain,
+            mtime_second_offset=args.mtime_second_offset,
+            skip_tagged=args.skip_tagged,
+            thread_count=args.thread_count,
+            ffmpeg_path=args.ffmpeg_path,
+            dry_run=args.dry_run,
+            report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
 
 
 if getattr(sys, "frozen", False):
