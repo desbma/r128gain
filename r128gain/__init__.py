@@ -436,6 +436,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
 
 def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None, skip_tagged=False,
             thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
+  """ Analyze and tag input audio files. """
   with contextlib.ExitStack() as cm:
     if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
       progress = cm.enter_context(tqdm.tqdm(total=len(audio_filepaths) + int(album_gain),
@@ -489,6 +490,7 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
 
 def process_recursive(directories, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None,
                       skip_tagged=False, thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
+  """ Analyze and tag all audio files recursively found in input directories. """
   if thread_count is None:
     try:
       thread_count = len(os.sched_getaffinity(0))
