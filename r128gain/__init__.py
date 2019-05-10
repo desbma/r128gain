@@ -157,7 +157,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
 
 
 def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None, executor=None,
-         progress=None):
+         progress=None, boxed_error_count=None):
   """ Analyze files, and return a dictionary of filepath to loudness metadata or filepath to future if executor is not None. """
   r128_data = {}
 
@@ -235,6 +235,8 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
             logger().warning("Failed to analyze file '%s': %s %s" % (audio_filepath,
                                                                      e.__class__.__qualname__,
                                                                      e))
+          if boxed_error_count is not None:
+            boxed_error_count[0] += 1
         else:
           if result is not None:  # track/album gain was not skipped
             r128_data[audio_filepath] = result
@@ -348,9 +350,8 @@ def tag(filepath, loudness, peak, *,
       mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (album_peak)).encode())
 
   else:
-    logger().warning("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
-                                                                  filepath))
-    return
+    raise RuntimeError("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
+                                                                    filepath))
 
   mf.save()
 
@@ -437,6 +438,8 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
 def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None, skip_tagged=False,
             thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   """ Analyze and tag input audio files. """
+  error_count = 0
+
   with contextlib.ExitStack() as cm:
     if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
       progress = cm.enter_context(tqdm.tqdm(total=len(audio_filepaths) + int(album_gain),
@@ -453,7 +456,8 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
                      skip_tagged=skip_tagged,
                      thread_count=thread_count,
                      ffmpeg_path=ffmpeg_path,
-                     progress=progress)
+                     progress=progress,
+                     boxed_error_count=[error_count])
 
   if report:
     show_scan_report(audio_filepaths,
@@ -486,11 +490,16 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
       logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                          e.__class__.__qualname__,
                                                          e))
+      error_count += 1
+
+  return error_count
 
 
 def process_recursive(directories, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None,
                       skip_tagged=False, thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   """ Analyze and tag all audio files recursively found in input directories. """
+  error_count = 0
+
   if thread_count is None:
     try:
       thread_count = len(os.sched_getaffinity(0))
@@ -568,6 +577,7 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
               logger().warning("Failed to analyze file '%s': %s %s" % (key,
                                                                        e.__class__.__qualname__,
                                                                        e))
+            error_count += 1
           else:
             if result is not None:
               r128_data[key] = result
@@ -601,6 +611,7 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
               logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
                                                                  e.__class__.__qualname__,
                                                                  e))
+              error_count += 1
 
         to_del_futures.add(done_future)
         for f in other_dir_futures:
@@ -608,6 +619,8 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
 
       for to_del_future in to_del_futures:
         del futures[to_del_future]
+
+    return error_count
 
 
 def cl_main():
@@ -704,25 +717,28 @@ def cl_main():
 
   # main
   if args.recursive:
-    process_recursive(args.path,
-                      album_gain=args.album_gain,
-                      opus_output_gain=args.opus_output_gain,
-                      mtime_second_offset=args.mtime_second_offset,
-                      skip_tagged=args.skip_tagged,
-                      thread_count=args.thread_count,
-                      ffmpeg_path=args.ffmpeg_path,
-                      dry_run=args.dry_run,
-                      report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
+    err_count = process_recursive(args.path,
+                                  album_gain=args.album_gain,
+                                  opus_output_gain=args.opus_output_gain,
+                                  mtime_second_offset=args.mtime_second_offset,
+                                  skip_tagged=args.skip_tagged,
+                                  thread_count=args.thread_count,
+                                  ffmpeg_path=args.ffmpeg_path,
+                                  dry_run=args.dry_run,
+                                  report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
   else:
-    process(args.path,
-            album_gain=args.album_gain,
-            opus_output_gain=args.opus_output_gain,
-            mtime_second_offset=args.mtime_second_offset,
-            skip_tagged=args.skip_tagged,
-            thread_count=args.thread_count,
-            ffmpeg_path=args.ffmpeg_path,
-            dry_run=args.dry_run,
-            report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
+    err_count = process(args.path,
+                        album_gain=args.album_gain,
+                        opus_output_gain=args.opus_output_gain,
+                        mtime_second_offset=args.mtime_second_offset,
+                        skip_tagged=args.skip_tagged,
+                        thread_count=args.thread_count,
+                        ffmpeg_path=args.ffmpeg_path,
+                        dry_run=args.dry_run,
+                        report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
+
+  if err_count > 0:
+    exit(1)
 
 
 if getattr(sys, "frozen", False):
