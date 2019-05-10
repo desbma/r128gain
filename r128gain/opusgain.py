@@ -1,6 +1,5 @@
 """ OggOpus parsing code. """
 
-import logging
 import struct
 
 import crcmod
@@ -21,10 +20,6 @@ OGG_OPUS_ID_HEADER_GAIN = struct.Struct("<h")
 ogg_page_crc = crcmod.mkCrcFun(0x104c11db7, initCrc=0, rev=False)
 
 
-def logger():
-  return logging.getLogger("r128gain.oggopus")
-
-
 def parse_oggopus_output_gain(file):
   """ Parse an OggOpus file headers, read and return its output gain, and set file seek position to start of Opus header. """
   #
@@ -36,30 +31,24 @@ def parse_oggopus_output_gain(file):
   first_ogg_page = bytearray()
   first_ogg_page.extend(chunk)
   if len(chunk) < OGG_FIRST_PAGE_HEADER.size:
-    logger().error("Not enough bytes in Ogg page header: %u, expected at least %u" % (len(chunk),
-                                                                                      OGG_FIRST_PAGE_HEADER.size))
-    return
+    raise ValueError("Not enough bytes in Ogg page header: %u, expected at least %u" % (len(chunk),
+                                                                                        OGG_FIRST_PAGE_HEADER.size))
   capture_pattern, version, header_type, granule_position, bitstream_serial_number, page_sequence_number, \
       crc_checksum, page_segments = OGG_FIRST_PAGE_HEADER.unpack(chunk)
   if capture_pattern != b"OggS":
-    logger().error("Invalid OGG capture pattern: %s, expected '%s'" % (repr(capture_pattern), "OggS"))
-    return
+    raise ValueError("Invalid OGG capture pattern: %s, expected '%s'" % (repr(capture_pattern), "OggS"))
   if version != 0:
-    logger().error("Invalid OGG version: %u, expected %u" % (version, 0))
-    return
+    raise ValueError("Invalid OGG version: %u, expected %u" % (version, 0))
   if header_type != 2:  # should be first page of stream
-    logger().error("Invalid OGG page header type: %u, expected %u" % (header_type, 2))
-    return
+    raise ValueError("Invalid OGG page header type: %u, expected %u" % (header_type, 2))
   if page_sequence_number != 0:
-    logger().error("Invalid OGG page sequence number: %u, expected %u" % (page_sequence_number, 0))
-    return
+    raise ValueError("Invalid OGG page sequence number: %u, expected %u" % (page_sequence_number, 0))
   segment_table_fmt = struct.Struct("<%uB" % (page_segments))
   chunk = file.read(segment_table_fmt.size)
   first_ogg_page.extend(chunk)
   if len(chunk) < segment_table_fmt.size:
-    logger().error("Not enough bytes for OGG segment table: %u, expected at least %u" % (len(chunk),
-                                                                                         segment_table_fmt.size))
-    return
+    raise ValueError("Not enough bytes for OGG segment table: %u, expected at least %u" % (len(chunk),
+                                                                                           segment_table_fmt.size))
   segment_table = segment_table_fmt.unpack(chunk)
 
   # check crc of first page
@@ -67,31 +56,26 @@ def parse_oggopus_output_gain(file):
   chunk = file.read(sum(segment_table))
   first_ogg_page.extend(chunk)
   if len(first_ogg_page) < first_ogg_page_size:
-    logger().error("Not enough bytes for first OGG page: %u, expected at least %u" % (len(first_ogg_page),
-                                                                                      first_ogg_page_size))
-    return
+    raise ValueError("Not enough bytes for first OGG page: %u, expected at least %u" % (len(first_ogg_page),
+                                                                                        first_ogg_page_size))
   computed_crc = _compute_ogg_page_crc(first_ogg_page)
   if computed_crc != crc_checksum:
-    logger().error("Invalid OGG page CRC: 0x%08x, expected 0x%08x" % (crc_checksum, computed_crc))
-    return
+    raise ValueError("Invalid OGG page CRC: 0x%08x, expected 0x%08x" % (crc_checksum, computed_crc))
 
   #
   # Opus header
   #
   chunk = first_ogg_page[OGG_FIRST_PAGE_HEADER.size + segment_table_fmt.size:][:segment_table[0]]
   if len(chunk) < OGG_OPUS_ID_HEADER.size:
-    logger().error("Not enough bytes for Opus Identification header: %u, "
-                   "expected at least %u" % (len(chunk),
-                                             OGG_OPUS_ID_HEADER.size))
-    return
+    raise ValueError("Not enough bytes for Opus Identification header: %u, "
+                     "expected at least %u" % (len(chunk),
+                                               OGG_OPUS_ID_HEADER.size))
   magic, version, channel_count, preskip, input_samplerate, output_gain, \
       mapping_family = OGG_OPUS_ID_HEADER.unpack(chunk[:OGG_OPUS_ID_HEADER.size])
   if magic != b"OpusHead":
-    logger().error("Invalid Opus magic number: %s, expected '%s'" % (repr(magic), "OpusHead"))
-    return
+    raise ValueError("Invalid Opus magic number: %s, expected '%s'" % (repr(magic), "OpusHead"))
   if (version >> 4) != 0:
-    logger().error("Invalid Opus version: 0x%x, expected 0x0-0xf" % (version))
-    return
+    raise ValueError("Invalid Opus version: 0x%x, expected 0x0-0xf" % (version))
 
   # seek to Opus header
   file.seek(OGG_FIRST_PAGE_HEADER.size + segment_table_fmt.size)
@@ -105,6 +89,7 @@ def write_oggopus_output_gain(file, new_output_gain):
   file must be an object successfully used by parse_oggopus_output_gain.
   """
   opus_header_pos = file.tell()
+  assert(opus_header_pos > 0)
 
   # write Opus header with new gain
   file.seek(opus_header_pos + OGG_OPUS_ID_HEADER_GAIN_OFFSET)

@@ -750,16 +750,14 @@ class TestR128Gain(unittest.TestCase):
 
   def test_oggopus_output_gain(self):
     # non opus formats should not be parsed successfully
-    with open(self.vorbis_filepath, "rb") as f:
-      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
-    with open(self.mp3_filepath, "rb") as f:
-      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
-    with open(self.m4a_filepath, "rb") as f:
-      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
-    with open(self.flac_filepath, "rb") as f:
-      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
-    with open(self.wv_filepath, "rb") as f:
-      self.assertIsNone(r128gain.opusgain.parse_oggopus_output_gain(f))
+    for filepath in (self.vorbis_filepath,
+                     self.mp3_filepath,
+                     self.m4a_filepath,
+                     self.flac_filepath,
+                     self.wv_filepath):
+      with open(filepath, "r+b") as f:
+        with self.assertRaises(ValueError):
+          r128gain.opusgain.parse_oggopus_output_gain(f)
 
     with open(self.opus_filepath, "r+b") as f:
       self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), 0)
