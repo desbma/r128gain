@@ -465,7 +465,7 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
                      r128_data)
 
   if dry_run:
-    return
+    return error_count
 
   # tag
   try:
@@ -620,7 +620,7 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
       for to_del_future in to_del_futures:
         del futures[to_del_future]
 
-    return error_count
+  return error_count
 
 
 def cl_main():
