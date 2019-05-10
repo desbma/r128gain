@@ -57,7 +57,7 @@ def get_ffmpeg_lib_versions(ffmpeg_path=None):
                           stdout=subprocess.PIPE,
                           universal_newlines=True).stdout
   output = output.splitlines()
-  lib_version_regex = re.compile("^\s*(lib[a-z]+)\s+([0-9]+).\s*([0-9]+).\s*([0-9]+)\s+")
+  lib_version_regex = re.compile(r"^\s*(lib[a-z]+)\s+([0-9]+).\s*([0-9]+).\s*([0-9]+)\s+")
   for line in output:
     match = lib_version_regex.search(line)
     if match:
