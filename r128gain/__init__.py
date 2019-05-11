@@ -371,6 +371,8 @@ def has_loudness_tag(filepath):
 
   try:
     mf = mutagen.File(filepath)
+    if mf is None:
+      return
   except mutagen.MutagenError as e:
     logger().warning("File '%s' %s: %s" % (filepath,
                                            e.__class__.__qualname__,
