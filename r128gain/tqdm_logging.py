@@ -1,4 +1,8 @@
-""" Code to help using the logging module with tqdm progress bars. """
+"""
+Code to help using the logging module with tqdm progress bars.
+
+This not thread safe, and only works with single logging handlers.
+"""
 
 import contextlib
 import logging
