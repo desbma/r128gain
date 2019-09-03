@@ -43,7 +43,7 @@ matrix:
   fast_finish: true
 before_install:
   - "export CI_CACHE_DIR=~/.cache/ci/r128gain"
-  - "if [ $WINDOWS -eq 1 ]; then curl https://dl.winehq.org/wine-builds/Release.key | sudo apt-key add - && sudo apt-add-repository https://dl.winehq.org/wine-builds/ubuntu/; fi"
+  - "if [ $WINDOWS -eq 1 ]; then curl https://dl.winehq.org/wine-builds/winehq.key | sudo apt-key add - && sudo apt-add-repository https://dl.winehq.org/wine-builds/ubuntu/; fi"
   - "sudo apt-get -q update"
   - "if [ $WINDOWS -eq 0 ]; then sudo apt-get -V install yasm; fi"
   - "if [ $WINDOWS -eq 0 ]; then ./ci/install-ffmpeg $FFMPEG_VERSION; fi"
