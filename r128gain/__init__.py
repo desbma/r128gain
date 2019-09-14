@@ -28,7 +28,8 @@ import r128gain.tqdm_logging as tqdm_logging
 import r128gain.opusgain as opusgain
 
 
-AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "wv"))
+AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "tta",
+                              "wv"))
 RG2_REF_R128_LOUDNESS_DBFS = -18
 OPUS_REF_R128_LOUDNESS_DBFS = -23
 ALBUM_GAIN_KEY = 0
