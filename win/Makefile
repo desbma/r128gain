@@ -140,7 +140,7 @@ ${7ZIP_INSTALLED}: ${7ZIP_INSTALLER}
 
 ${FFMPEG_INSTALLED}:
 	mkdir -p $(dir $@)
-	./build-minimal-ffpmeg ${FFMPEG_VERSION} ${WINEARCH} ${FFMPEG_CACHE_DIR} $@
+	./cross-build-minimal-ffmpeg ${FFMPEG_VERSION} ${WINEARCH} ${FFMPEG_CACHE_DIR} $@
 
 ${SOX_INSTALLED}: ${SOX_ZIP}
 	mkdir -p ${WINE_DIR}/drive_c
