@@ -14,7 +14,6 @@ configure() {
               --enable-version3 \
               --enable-static \
               --disable-shared \
-              --disable-autodetect \
               --disable-programs \
               --enable-ffmpeg \
               --disable-doc \
