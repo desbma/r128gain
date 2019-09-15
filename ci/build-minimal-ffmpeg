@@ -26,7 +26,6 @@ configure() {
               --disable-hwaccels \
               --disable-muxers \
               --enable-muxer=null \
-              --disable-demuxer=dnxhd \
               --disable-parsers \
               --disable-bsfs \
               --disable-protocols \
