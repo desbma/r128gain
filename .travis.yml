@@ -55,7 +55,7 @@ install:
   - "if [ $WINDOWS -eq 0 ]; then sudo apt-get -V install sox; fi"
   - "if [ $WINDOWS -eq 0 ]; then pip install -r test-requirements.txt; fi"
   - "if [ $WINDOWS -eq 0 ]; then pip install coveralls; fi"
-  - "if [ $WINDOWS -eq 1 ]; then sudo apt-get -V --allow-unauthenticated install winehq-stable p7zip-full mingw-w64; fi"
+  - "if [ $WINDOWS -eq 1 ]; then sudo apt-get -V install winehq-stable p7zip-full mingw-w64; fi"
 script:
   - "export PATH=$HOME/.local/bin:$PATH"
   - "if [ $WINDOWS -eq 0 ]; then coverage run --source=r128gain setup.py test; fi"

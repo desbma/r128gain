@@ -14,6 +14,8 @@ configure() {
               --enable-version3 \
               --enable-static \
               --disable-shared \
+              --disable-runtime-cpudetect \
+              $(./configure --help | grep -oF -- '--disable-autodetect' || true) \
               --disable-programs \
               --enable-ffmpeg \
               --disable-doc \
@@ -24,12 +26,14 @@ configure() {
               --disable-hwaccels \
               --disable-muxers \
               --enable-muxer=null \
+              --disable-demuxer=dnxhd \
               --disable-parsers \
               --disable-bsfs \
               --disable-protocols \
               --enable-protocol=file \
               --disable-devices \
               --disable-filters \
+              --enable-filter=afifo \
               --enable-filter=aformat \
               --enable-filter=anullsink \
               --enable-filter=aresample \
