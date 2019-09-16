@@ -283,6 +283,15 @@ def tag(filepath, loudness, peak, *,
   logger().info("Tagging file '%s'" % (filepath))
   original_mtime = os.path.getmtime(filepath)
   mf = mutagen.File(filepath)
+  if (mf is not None) and (mf.tags is None) and isinstance(mf, mutagen.trueaudio.TrueAudio):
+    # TTA can have ID3 or APE tags, try to use APE if we already have some APE tags and no ID3
+    try:
+      mf_ape = mutagen.apev2.APEv2File(filepath)
+    except Exception:
+      pass
+    else:
+      if mf_ape.tags is not None:
+        mf = mf_ape
   if (mf is not None) and (mf.tags is None):
     mf.add_tags()
 
