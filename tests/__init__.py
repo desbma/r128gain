@@ -140,7 +140,7 @@ class TestR128Gain(unittest.TestCase):
     self.ref_levels = {self.vorbis_filepath: (-7.7, 1.0),
                        self.opus_filepath: (-14.7, None),
                        self.mp3_filepath: (-13.9, 0.94281),
-                       self.m4a_filepath: (-20.6, 0.707107),
+                       self.m4a_filepath: (-20.6, 0.711426),
                        self.flac_filepath: (-26.7, 0.232147),
                        self.wv_filepath: (-3.3, 0.705017),
                        0: (-11.4, 1.0)}
