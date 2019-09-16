@@ -95,7 +95,8 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   aformat_r128_filter_params = {"sample_fmts": "s16",
                                 "sample_rates": "48000",
                                 "channel_layouts": "stereo"}
-  aformat_rg_filter_params = {"sample_fmts": "s16"}
+  aformat_rg_filter_params = {"sample_fmts": "s16",
+                              "channel_layouts": "stereo"}
   filter_chain = []
   if len(audio_filepaths) > 1:
     cmd.append("-filter_complex")
