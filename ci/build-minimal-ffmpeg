@@ -23,6 +23,7 @@ configure() {
               --enable-encoder=pcm_s16le \
               --disable-decoders \
               $(ffmpeg -hide_banner -codecs | grep '^ D.A' | cut -d ' ' -f 3 | xargs -I'{}' echo --enable-decoder={}) \
+              --enable-decoder=dnxhd \
               --disable-hwaccels \
               --disable-muxers \
               --enable-muxer=null \
