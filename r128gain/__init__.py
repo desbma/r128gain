@@ -16,7 +16,6 @@ import math
 import operator
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -127,7 +126,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   cmd.extend(("-f", "null", os.devnull))
 
   # run
-  logger().debug(shlex.join(cmd))
+  logger().debug(subprocess.list2cmdline(cmd))
   output = subprocess.run(cmd,
                           check=True,
                           stdin=subprocess.DEVNULL,
