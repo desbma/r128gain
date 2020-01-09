@@ -16,6 +16,7 @@ import math
 import operator
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,13 @@ import tqdm
 import r128gain.colored_logging as colored_logging
 import r128gain.tqdm_logging as tqdm_logging
 import r128gain.opusgain as opusgain
+
+
+try:
+  # Python >= 3.8
+  cmd_to_string = shlex.join
+except AttributeError:
+  cmd_to_string = subprocess.list2cmdline
 
 
 AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "tta",
@@ -126,7 +134,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   cmd.extend(("-f", "null", os.devnull))
 
   # run
-  logger().debug(subprocess.list2cmdline(cmd))
+  logger().debug(cmd_to_string(cmd))
   output = subprocess.run(cmd,
                           check=True,
                           stdin=subprocess.DEVNULL,
