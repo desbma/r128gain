@@ -135,7 +135,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
                                      os.devnull,
                                      **additional_ffmpeg_args,
                                      f="null"),
-                       cmd=ffmpeg_path of "ffmpeg")
+                       cmd=ffmpeg_path or "ffmpeg")
 
   # run
   logger().debug(cmd_to_string(cmd))
