@@ -325,18 +325,24 @@ def tag(filepath, loudness, peak, *,
     # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_legacy_metadata_formats#ID3v2_RVA2
 
   elif isinstance(mf, mutagen.oggopus.OggOpus):
-    if opus_output_gain and (loudness is not None):
+    if opus_output_gain:
       with open(filepath, "r+b") as file:
         current_output_gain = opusgain.parse_oggopus_output_gain(file)
-        new_output_gain = current_output_gain + float_to_q7dot8(OPUS_REF_R128_LOUDNESS_DBFS - loudness)
+        if album_loudness is not None:
+          # write header relative to album level
+          output_gain_loudness = album_loudness
+        else:
+          output_gain_loudness = loudness
+        new_output_gain = current_output_gain + float_to_q7dot8(OPUS_REF_R128_LOUDNESS_DBFS - output_gain_loudness)
         opusgain.write_oggopus_output_gain(file, new_output_gain)
 
       # now that the output gain header is written, we will write the R128 tag for the new loudness
-      loudness = OPUS_REF_R128_LOUDNESS_DBFS
       if album_loudness is not None:
-        # assume the whole album will be normalized the same way
-        # TODO better behavior? rescan album? disable R128 tags?
+        if loudness is not None:
+          loudness = OPUS_REF_R128_LOUDNESS_DBFS - (album_loudness - loudness)
         album_loudness = OPUS_REF_R128_LOUDNESS_DBFS
+      else:
+        loudness = OPUS_REF_R128_LOUDNESS_DBFS
 
     # https://wiki.xiph.org/OggOpus#Comment_Header
     if loudness is not None:
@@ -675,7 +681,7 @@ def cl_main():
                           "--opus-output-gain",
                           action="store_true",
                           default=False,
-                          help="""For Opus files, write track gain in the 'output gain' Opus header (see
+                          help="""For Opus files, write album or track gain in the 'output gain' Opus header (see
                                   https://tools.ietf.org/html/rfc7845#page-15). This gain is mandatory to apply for all
                                   Opus decoders so this should improve compatibility with players not supporting the
                                   R128 tags.

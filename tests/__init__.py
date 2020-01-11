@@ -770,19 +770,66 @@ class TestR128Gain(unittest.TestCase):
 
   def test_tag_oggopus_output_gain(self):
     ref_loudness_opus = -23
-    loudness = self.ref_levels[self.opus_filepath][0]
-    r128gain.tag(self.opus_filepath, loudness, None, opus_output_gain=True)
-    mf = mutagen.File(self.opus_filepath)
+    ref_track_loudness = self.ref_levels[self.opus_filepath][0]
+    track_to_album_gain_delta = 1.5
+    ref_album_loudness = ref_track_loudness + track_to_album_gain_delta
+
+    opus_filepath = shutil.copyfile(self.opus_filepath,
+                                    ".".join((os.path.splitext(self.opus_filepath)[0], "2" ".opus")))
+    r128gain.tag(opus_filepath, ref_track_loudness, None, opus_output_gain=True)
+    mf = mutagen.File(opus_filepath)
     self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
     self.assertIn("R128_TRACK_GAIN", mf)
     self.assertEqual(mf["R128_TRACK_GAIN"], ["0"])
+    self.assertNotIn("R128_ALBUM_GAIN", mf)
 
-    expected_output_gain = round((ref_loudness_opus - loudness) * (2 ** 8))
-    with open(self.opus_filepath, "rb") as f:
+    expected_output_gain = round((ref_loudness_opus - ref_track_loudness) * (2 ** 8))
+    with open(opus_filepath, "rb") as f:
       self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
 
-    self.assertEqual(r128gain.scan([self.opus_filepath]),
-                     {self.opus_filepath: (float(ref_loudness_opus), None)})
+    self.assertEqual(r128gain.scan([opus_filepath]),
+                     {opus_filepath: (float(ref_loudness_opus), None)})
+
+    opus_filepath = shutil.copyfile(self.opus_filepath,
+                                    ".".join((os.path.splitext(self.opus_filepath)[0], "2" ".opus")))
+    r128gain.tag(opus_filepath,
+                 None,
+                 None,
+                 album_loudness=ref_album_loudness,
+                 opus_output_gain=True)
+    mf = mutagen.File(opus_filepath)
+    self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+    self.assertNotIn("R128_TRACK_GAIN", mf)
+    self.assertIn("R128_ALBUM_GAIN", mf)
+    self.assertEqual(mf["R128_ALBUM_GAIN"], ["0"])
+
+    expected_output_gain = round((ref_loudness_opus - ref_album_loudness) * (2 ** 8))
+    with open(opus_filepath, "rb") as f:
+      self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
+
+    self.assertEqual(r128gain.scan([opus_filepath]),
+                     {opus_filepath: (float(ref_loudness_opus - track_to_album_gain_delta), None)})
+
+    opus_filepath = shutil.copyfile(self.opus_filepath,
+                                    ".".join((os.path.splitext(self.opus_filepath)[0], "2" ".opus")))
+    r128gain.tag(opus_filepath,
+                 ref_track_loudness,
+                 None,
+                 album_loudness=ref_album_loudness,
+                 opus_output_gain=True)
+    mf = mutagen.File(opus_filepath)
+    self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+    self.assertIn("R128_TRACK_GAIN", mf)
+    self.assertEqual(mf["R128_TRACK_GAIN"], [str(r128gain.float_to_q7dot8(track_to_album_gain_delta))])
+    self.assertIn("R128_ALBUM_GAIN", mf)
+    self.assertEqual(mf["R128_ALBUM_GAIN"], ["0"])
+
+    expected_output_gain = round((ref_loudness_opus - ref_album_loudness) * (2 ** 8))
+    with open(opus_filepath, "rb") as f:
+      self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
+
+    self.assertEqual(r128gain.scan([opus_filepath]),
+                     {opus_filepath: (float(ref_loudness_opus - track_to_album_gain_delta), None)})
 
 
 if __name__ == "__main__":
