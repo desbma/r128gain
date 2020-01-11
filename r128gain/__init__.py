@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 
+import ffmpeg
 import mutagen
 import tqdm
 
@@ -90,48 +91,51 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
                                                         ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
 
   # build command line
-  cmd = [ffmpeg_path or "ffmpeg",
-         "-hide_banner", "-nostats"]
-  for i, audio_filepath in enumerate(audio_filepaths):
-    if not enable_ffmpeg_threading:
-      cmd.extend(("-threads:%u" % (i), "1"))  # single decoding thread
-    cmd.extend(("-i", audio_filepath))
-  if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
-    cmd.extend(("-filter_threads", "1"))  # single filter thread
-  cmd.extend(("-map", "a"))
-  ebur128_filter_params = {"framelog": "verbose"}
-  aformat_r128_filter_params = {"sample_fmts": "s16",
-                                "sample_rates": "48000",
-                                "channel_layouts": "stereo"}
-  aformat_rg_filter_params = {"sample_fmts": "s16",
-                              "channel_layouts": "stereo"}
-  filter_chain = []
-  if len(audio_filepaths) > 1:
-    cmd.append("-filter_complex")
-    for i in range(len(audio_filepaths)):
-      if calc_peak:
-        filter_chain.append("[%u:a]asplit[a_rg_in_%u][a_r128_in_%u]" % (i, i, i))
-        filter_chain.append("[a_rg_in_%u]%s,replaygain,anullsink" % (i,
-                                                                     format_ffmpeg_filter("aformat",
-                                                                                          aformat_rg_filter_params)))
-      else:
-        filter_chain.append("[%u:a]anull[a_r128_in_%u]" % (i, i))
-      filter_chain.append("[a_r128_in_%u]%s,afifo[a_r128_in_fmt_%u]" % (i,
-                                                                        format_ffmpeg_filter("aformat",
-                                                                                             aformat_r128_filter_params),
-                                                                        i))
-    filter_chain.append("%sconcat=n=%u:v=0:a=1[a_r128_in_concat]" % ("".join(("[a_r128_in_fmt_%u]" % (i)) for i in range(len(audio_filepaths))),
-                                                                     len(audio_filepaths)))
-    filter_chain.append("[a_r128_in_concat]%s" % (format_ffmpeg_filter("ebur128", ebur128_filter_params)))
-    cmd.append("; ".join(filter_chain))
+  ffmpeg_inputs = []
+  if not enable_ffmpeg_threading:
+    additional_ffmpeg_args = {"threads": 1}  # single decoding thread
   else:
+    additional_ffmpeg_args = dict()
+  for audio_filepath in audio_filepaths:
+    ffmpeg_input = ffmpeg.input(audio_filepath, **additional_ffmpeg_args).audio
+    ffmpeg_inputs.append(ffmpeg_input)
+
+  output_streams =  []
+  ffmpeg_r128_streams = []
+  for ffmpeg_input in ffmpeg_inputs:
     if calc_peak:
-      filter_chain.extend((format_ffmpeg_filter("aformat", aformat_rg_filter_params),
-                           "replaygain"))
-    filter_chain.append(format_ffmpeg_filter("ebur128", ebur128_filter_params))
-    # filter_chain.append("anullsink")
-    cmd.extend(("-filter:a", ",".join(filter_chain)))
-  cmd.extend(("-f", "null", os.devnull))
+      split_streams = ffmpeg_input.filter_multi_output("asplit", outputs=2)
+      ffmpeg_rg_stream, ffmpeg_r128_stream = split_streams[0], split_streams[1]
+      ffmpeg_rg_stream = ffmpeg_rg_stream.filter("aformat",
+                                                 sample_fmts="s16",
+                                                 channel_layouts="stereo")
+      ffmpeg_rg_stream = ffmpeg_rg_stream.filter("replaygain")
+      output_streams.append(ffmpeg_rg_stream)
+    else:
+      ffmpeg_r128_stream = ffmpeg_input
+    ffmpeg_r128_stream = ffmpeg_r128_stream.filter("aformat",
+                                                   sample_fmts="s16",
+                                                   sample_rates="48000",
+                                                   channel_layouts="stereo")
+    ffmpeg_r128_stream = ffmpeg_r128_stream.filter("afifo")  # TODO remove?
+    ffmpeg_r128_streams.append(ffmpeg_r128_stream)
+
+  if len(audio_filepaths) > 1:
+    ffmpeg_r128_merged = ffmpeg.concat(*ffmpeg_r128_streams, n=len(ffmpeg_r128_streams), v=0, a=1)
+  else:
+    ffmpeg_r128_merged = ffmpeg_r128_streams[0]
+  ffmpeg_r128_merged = ffmpeg_r128_merged.filter("ebur128", framelog="verbose")
+  output_streams.append(ffmpeg_r128_merged)
+
+  if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
+    additional_ffmpeg_args = {"filter_complex_threads": 1}  # single filter thread
+  else:
+    additional_ffmpeg_args = dict()
+  cmd = ffmpeg.compile(ffmpeg.output(*output_streams,
+                                     os.devnull,
+                                     **additional_ffmpeg_args,
+                                     f="null"),
+                       cmd=ffmpeg_path of "ffmpeg")
 
   # run
   logger().debug(cmd_to_string(cmd))
