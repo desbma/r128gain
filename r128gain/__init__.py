@@ -117,7 +117,6 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
                                                    sample_fmts="s16",
                                                    sample_rates="48000",
                                                    channel_layouts="stereo")
-    ffmpeg_r128_stream = ffmpeg_r128_stream.filter("afifo")  # TODO remove?
     ffmpeg_r128_streams.append(ffmpeg_r128_stream)
 
   if len(audio_filepaths) > 1:
