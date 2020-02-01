@@ -57,7 +57,7 @@ def logger():
 def dynamic_tqdm(*tqdm_args, **tqdm_kwargs):
   """ Context manager that returns a tqdm object or None depending on context. """
   with contextlib.ExitStack() as cm:
-    if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
+    if sys.stderr.isatty() and logger().isEnabledFor(logging.INFO):
       progress = cm.enter_context(tqdm.tqdm(*tqdm_args, **tqdm_kwargs))
       cm.enter_context(tqdm_logging.redirect_logging(progress))
     else:
