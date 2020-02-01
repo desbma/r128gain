@@ -20,6 +20,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 
 import ffmpeg
 import mutagen
@@ -42,10 +43,26 @@ AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "tta",
 RG2_REF_R128_LOUDNESS_DBFS = -18
 OPUS_REF_R128_LOUDNESS_DBFS = -23
 ALBUM_GAIN_KEY = 0
+try:
+  OPTIMAL_THREAD_COUNT = len(os.sched_getaffinity(0))
+except AttributeError:
+  OPTIMAL_THREAD_COUNT = os.cpu_count()
 
 
 def logger():
   return logging.getLogger("r128gain")
+
+
+@contextlib.contextmanager
+def dynamic_tqdm(*tqdm_args, **tqdm_kwargs):
+  """ Context manager that returns a tqdm object or None depending on context. """
+  with contextlib.ExitStack() as cm:
+    if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
+      progress = cm.enter_context(tqdm.tqdm(*tqdm_args, **tqdm_kwargs))
+      cm.enter_context(tqdm_logging.redirect_logging(progress))
+    else:
+      progress = None
+    yield progress
 
 
 def is_audio_filepath(filepath):
@@ -85,8 +102,12 @@ def format_ffmpeg_filter(name, params):
                     ":".join("%s=%s" % (k, v) for k, v in params.items()))
 
 
-def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None):
+def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None,
+                      start_evt=None):
   """ Get R128 loudness loudness level and sample peak. """
+  if start_evt is not None:
+    start_evt.wait()
+
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
                                                         ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
 
@@ -171,17 +192,14 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
 
 
 def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None, executor=None,
-         progress=None, boxed_error_count=None):
+         progress=None, boxed_error_count=None, start_evt=None):
   """ Analyze files, and return a dictionary of filepath to loudness metadata or filepath to future if executor is not None. """
   r128_data = {}
 
   with contextlib.ExitStack() as cm:
     if executor is None:
       if thread_count is None:
-        try:
-          thread_count = len(os.sched_getaffinity(0))
-        except AttributeError:
-          thread_count = os.cpu_count()
+        thread_count = OPTIMAL_THREAD_COUNT
       enable_ffmpeg_threading = thread_count > (len(audio_filepaths) + int(album_gain))
       executor = cm.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=thread_count))
       asynchronous = False
@@ -208,7 +226,8 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
                                  audio_filepaths,
                                  calc_peak=calc_album_peak,
                                  enable_ffmpeg_threading=enable_ffmpeg_threading,
-                                 ffmpeg_path=ffmpeg_path)
+                                 ffmpeg_path=ffmpeg_path,
+                                 start_evt=start_evt)
         futures[future] = ALBUM_GAIN_KEY
     for audio_filepath in audio_filepaths:
       if skip_tagged and has_loudness_tag(audio_filepath)[0]:
@@ -225,7 +244,8 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
                                  (audio_filepath,),
                                  calc_peak=calc_peak,
                                  enable_ffmpeg_threading=enable_ffmpeg_threading,
-                                 ffmpeg_path=ffmpeg_path)
+                                 ffmpeg_path=ffmpeg_path,
+                                 start_evt=start_evt)
       futures[future] = audio_filepath
 
     if asynchronous:
@@ -471,16 +491,10 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
   """ Analyze and tag input audio files. """
   error_count = 0
 
-  with contextlib.ExitStack() as cm:
-    if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
-      progress = cm.enter_context(tqdm.tqdm(total=len(audio_filepaths) + int(album_gain),
-                                            desc="Analyzing audio loudness",
-                                            unit=" files",
-                                            leave=False))
-      cm.enter_context(tqdm_logging.redirect_logging(progress))
-    else:
-      progress = None
-
+  with dynamic_tqdm(total=len(audio_filepaths) + int(album_gain),
+                    desc="Analyzing audio loudness",
+                    unit=" files",
+                    leave=False) as progress:
     # analyze files
     r128_data = scan(audio_filepaths,
                      album_gain=album_gain,
@@ -531,43 +545,60 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
   """ Analyze and tag all audio files recursively found in input directories. """
   error_count = 0
 
-  if thread_count is None:
-    try:
-      thread_count = len(os.sched_getaffinity(0))
-    except AttributeError:
-      thread_count = os.cpu_count()
-
-  futures = {}
-  with concurrent.futures.ThreadPoolExecutor(max_workers=thread_count) as executor, \
-          contextlib.ExitStack() as cm:
-    if sys.stderr.isatty() and logging.getLogger().isEnabledFor(logging.INFO):
-      progress = cm.enter_context(tqdm.tqdm(total=0,
-                                            desc="Analyzing audio loudness",
-                                            unit=" files",
-                                            leave=False))
-      cm.enter_context(tqdm_logging.redirect_logging(progress))
-    else:
-      progress = None
-
-    # walk directories, start analysis
+  # walk directories
+  albums_filepaths = []
+  walk_stats = collections.OrderedDict(((k, 0) for k in("files", "dirs")))
+  with dynamic_tqdm(desc="Analyzing directories",
+                    unit=" dir",
+                    postfix=walk_stats,
+                    leave=False) as progress:
     for input_directory in directories:
       for root_dir, subdirs, filepaths in os.walk(input_directory, followlinks=False):
         audio_filepaths = tuple(map(functools.partial(os.path.join, root_dir),
                                     filter(is_audio_filepath,
                                            filepaths)))
         if audio_filepaths:
-          dir_futures = scan(audio_filepaths,
-                             album_gain=album_gain,
-                             skip_tagged=skip_tagged,
-                             ffmpeg_path=ffmpeg_path,
-                             executor=executor)
-          dir_futures = {k: (tuple(f for f in dir_futures.keys() if f is not k), v) for k, v in dir_futures.items()}
-          futures.update(dir_futures)
+          albums_filepaths.append(audio_filepaths)
 
-          if progress is not None:
-            progress.total += len(audio_filepaths) + int(album_gain)
+        if progress is not None:
+          walk_stats["files"] += len(filepaths)
+          walk_stats["dirs"] += 1
+          progress.set_postfix(walk_stats, refresh=False)
+          progress.update(1)
 
+  # get optimal thread count
+  if thread_count is None:
+    thread_count = OPTIMAL_THREAD_COUNT
+
+  executor = concurrent.futures.ThreadPoolExecutor(max_workers=thread_count)
+  start_evt = threading.Event()
+  futures = {}
+
+  with dynamic_tqdm(total=len(albums_filepaths),
+                    desc="Building work queue",
+                    unit=" albums",
+                    leave=False) as progress:
+    # analysis futures
+    for album_filepaths in albums_filepaths:
+      dir_futures = scan(album_filepaths,
+                         album_gain=album_gain,
+                         skip_tagged=skip_tagged,
+                         ffmpeg_path=ffmpeg_path,
+                         executor=executor,
+                         start_evt=start_evt)
+      dir_futures = {k: (tuple(f for f in dir_futures.keys() if f is not k), v) for k, v in dir_futures.items()}
+      futures.update(dir_futures)
+
+      if progress is not None:
+        progress.update(1)
+
+  with dynamic_tqdm(total=sum(map(len, albums_filepaths)) + int(album_gain) * len(albums_filepaths),
+                    desc="Analyzing audio loudness",
+                    unit=" files",
+                    leave=False,
+                    smoothing=0) as progress:
     # get results
+    start_evt.set()
     pending_futures = futures
     while futures:
       done_futures, pending_futures = concurrent.futures.wait(pending_futures,
@@ -650,6 +681,8 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
 
       for to_del_future in to_del_futures:
         del futures[to_del_future]
+
+  executor.shutdown(True)
 
   return error_count
 
