@@ -155,7 +155,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   cmd = ffmpeg.compile(ffmpeg.output(*output_streams,
                                      os.devnull,
                                      **additional_ffmpeg_args,
-                                     f="null"),
+                                     f="null").global_args("-hide_banner", "-nostats"),
                        cmd=ffmpeg_path or "ffmpeg")
 
   # run
