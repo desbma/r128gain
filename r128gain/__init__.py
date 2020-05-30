@@ -109,7 +109,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
     start_evt.wait()
 
   logger().info("Analyzing loudness of file%s %s..." % ("s" if (len(audio_filepaths) > 1) else "",
-                                                        ", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths)))
+                                                        ", ".join(repr(audio_filepath) for audio_filepath in audio_filepaths)))
 
   # build command line
   ffmpeg_inputs = []
@@ -121,7 +121,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
     ffmpeg_input = ffmpeg.input(audio_filepath, **additional_ffmpeg_args).audio
     ffmpeg_inputs.append(ffmpeg_input)
 
-  output_streams =  []
+  output_streams = []
   ffmpeg_r128_streams = []
   for ffmpeg_input in ffmpeg_inputs:
     if calc_peak:
@@ -231,7 +231,7 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
         futures[future] = ALBUM_GAIN_KEY
     for audio_filepath in audio_filepaths:
       if skip_tagged and has_loudness_tag(audio_filepath)[0]:
-        logger().info("File '%s' already has a track gain tag, skipping track gain scan" % (audio_filepath))
+        logger().info("File %r already has a track gain tag, skipping track gain scan" % (audio_filepath))
         # create dummy future
         future = executor.submit(lambda: None)
       else:
@@ -260,15 +260,14 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
         try:
           result = done_future.result()
         except Exception as e:
-          # raise
           if audio_filepath == ALBUM_GAIN_KEY:
-            logger().warning("Failed to analyze files %s: %s %s" % (", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths),
+            logger().warning("Failed to analyze files %s: %s %s" % (", ".join(repr(audio_filepath) for audio_filepath in audio_filepaths),
                                                                     e.__class__.__qualname__,
                                                                     e))
           else:
-            logger().warning("Failed to analyze file '%s': %s %s" % (audio_filepath,
-                                                                     e.__class__.__qualname__,
-                                                                     e))
+            logger().warning("Failed to analyze file %r: %s %s" % (audio_filepath,
+                                                                   e.__class__.__qualname__,
+                                                                   e))
           if boxed_error_count is not None:
             boxed_error_count[0] += 1
         else:
@@ -312,7 +311,7 @@ def tag(filepath, loudness, peak, *,
     if album_peak is not None:
       assert(0 <= album_peak <= 1.0)
 
-  logger().info("Tagging file '%s'" % (filepath))
+  logger().info("Tagging file %r" % (filepath))
   original_mtime = os.path.getmtime(filepath)
   mf = mutagen.File(filepath)
   if (mf is not None) and (mf.tags is None) and isinstance(mf, mutagen.trueaudio.TrueAudio):
@@ -407,7 +406,7 @@ def tag(filepath, loudness, peak, *,
   # preserve original modification time, possibly increasing it by some seconds
   if mtime_second_offset is not None:
     if mtime_second_offset == 0:
-      logger().debug("Restoring modification time for file '{}'".format(filepath))
+      logger().debug("Restoring modification time for file %r" % (filepath))
     else:
       logger().debug("Restoring modification time for file '{}' (adding {} seconds)".format(filepath,
                                                                                             mtime_second_offset))
@@ -421,9 +420,9 @@ def has_loudness_tag(filepath):
   try:
     mf = mutagen.File(filepath)
   except mutagen.MutagenError as e:
-    logger().warning("File '%s' %s: %s" % (filepath,
-                                           e.__class__.__qualname__,
-                                           e))
+    logger().warning("File %r %s: %s" % (filepath,
+                                         e.__class__.__qualname__,
+                                         e))
     return
   if mf is None:
     return
@@ -448,8 +447,8 @@ def has_loudness_tag(filepath):
     album = ("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN" in mf) and ("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK" in mf)
 
   else:
-    logger().warning("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
-                                                                  filepath))
+    logger().warning("Unhandled '%s' tag format for file %r" % (mf.__class__.__name__,
+                                                                filepath))
     return
 
   return track, album
@@ -469,7 +468,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
         peak = "-"
       else:
         peak = "%.1f dBFS" % (scale_to_gain(peak))
-    logger().info("File '%s': loudness = %s, sample peak = %s" % (audio_filepath, loudness, peak))
+    logger().info("File %r: loudness = %s, sample peak = %s" % (audio_filepath, loudness, peak))
 
   # album loudness/peak
   if album_dir:
@@ -483,7 +482,7 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
         album_peak = "-"
       else:
         album_peak = "%.1f dBFS" % (scale_to_gain(album_peak))
-    logger().info("Album '%s': loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
+    logger().info("Album %r: loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
 
 
 def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None, skip_tagged=False,
@@ -531,10 +530,9 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
           album_loudness=album_loudness, album_peak=album_peak,
           opus_output_gain=opus_output_gain, mtime_second_offset=mtime_second_offset)
     except Exception as e:
-      # raise
-      logger().error("Failed to tag file '%s': %s %s" % (audio_filepath,
-                                                         e.__class__.__qualname__,
-                                                         e))
+      logger().error("Failed to tag file %r: %s %s" % (audio_filepath,
+                                                       e.__class__.__qualname__,
+                                                       e))
       error_count += 1
 
   return error_count
@@ -632,13 +630,13 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
             result = dir_future.result()
           except Exception as e:
             if album_gain and (key == ALBUM_GAIN_KEY):
-              logger().warning("Failed to analyze files %s: %s %s" % (", ".join("'%s'" % (audio_filepath) for audio_filepath in audio_filepaths),
+              logger().warning("Failed to analyze files %s: %s %s" % (", ".join(repr(audio_filepath) for audio_filepath in audio_filepaths),
                                                                       e.__class__.__qualname__,
                                                                       e))
             else:
-              logger().warning("Failed to analyze file '%s': %s %s" % (key,
-                                                                       e.__class__.__qualname__,
-                                                                       e))
+              logger().warning("Failed to analyze file %r: %s %s" % (key,
+                                                                     e.__class__.__qualname__,
+                                                                     e))
             error_count += 1
           else:
             if result is not None:
