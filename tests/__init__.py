@@ -52,7 +52,7 @@ class TestR128Gain(unittest.TestCase):
              vorbis_filepath)
 
     opus_filepath = os.path.join(cls.ref_temp_dir.name, "f.opus")
-    download("https://people.xiph.org/~giles/2012/opus/ehren-paper_lights-64.opus",
+    download("https://www.dropbox.com/s/xlp1goezxovlgl4/ehren-paper_lights-64.opus?dl=1",
              opus_filepath)
 
     cls.ref_temp_dir2 = tempfile.TemporaryDirectory()
