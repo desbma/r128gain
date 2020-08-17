@@ -38,7 +38,7 @@ except AttributeError:
   cmd_to_string = subprocess.list2cmdline
 
 
-AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "tta",
+AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mka", "mp3", "mpc", "tta",
                               "wv"))
 RG2_REF_R128_LOUDNESS_DBFS = -18
 OPUS_REF_R128_LOUDNESS_DBFS = -23
