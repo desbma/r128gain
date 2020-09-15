@@ -391,11 +391,11 @@ def tag(filepath, loudness, peak, *,
         isinstance(mf, mutagen.mp4.MP4)):
     # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
     if loudness is not None:
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)).encode())
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (peak)).encode())
+      mf["----:com.apple.iTunes:replaygain_track_gain"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)).encode())
+      mf["----:com.apple.iTunes:replaygain_track_peak"] = mutagen.mp4.MP4FreeForm(("%.6f" % (peak)).encode())
     if album_loudness is not None:
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)).encode())
-      mf["----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK"] = mutagen.mp4.MP4FreeForm(("%.6f" % (album_peak)).encode())
+      mf["----:com.apple.iTunes:replaygain_album_gain"] = mutagen.mp4.MP4FreeForm(("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)).encode())
+      mf["----:com.apple.iTunes:replaygain_album_peak"] = mutagen.mp4.MP4FreeForm(("%.6f" % (album_peak)).encode())
 
   else:
     raise RuntimeError("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__,
@@ -443,8 +443,8 @@ def has_loudness_tag(filepath):
 
   elif (isinstance(mf.tags, mutagen.mp4.MP4Tags) or
         isinstance(mf, mutagen.mp4.MP4)):
-    track = ("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_GAIN" in mf) and ("----:COM.APPLE.ITUNES:REPLAYGAIN_TRACK_PEAK" in mf)
-    album = ("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_GAIN" in mf) and ("----:COM.APPLE.ITUNES:REPLAYGAIN_ALBUM_PEAK" in mf)
+    track = ("----:com.apple.iTunes:replaygain_track_gain" in mf) and ("----:com.apple.iTunes:replaygain_track_peak" in mf)
+    album = ("----:com.apple.iTunes:replaygain_album_gain" in mf) and ("----:com.apple.iTunes:replaygain_album_peak" in mf)
 
   else:
     logger().warning("Unhandled '%s' tag format for file %r" % (mf.__class__.__name__,
