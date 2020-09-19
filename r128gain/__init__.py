@@ -598,10 +598,11 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
     # get results
     start_evt.set()
     pending_futures = futures
+    retained_futures = set()
+
     while futures:
       done_futures, pending_futures = concurrent.futures.wait(pending_futures,
                                                               return_when=concurrent.futures.FIRST_COMPLETED)
-      to_del_futures = set()
 
       for done_future in done_futures:
         other_dir_futures, _ = futures[done_future]
@@ -610,16 +611,13 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
           # update progress
           progress.update(1)
 
-        # ignore futures already processed
-        if done_future in to_del_futures:
-          continue
-
         # only tag when the whole directory is scanned
-        dir_futures = (done_future,) + other_dir_futures
-        if not all(f.done() for f in dir_futures):
+        if any(f not in retained_futures for f in other_dir_futures):
+          retained_futures.add(done_future)
           continue
 
         # get album filepaths
+        dir_futures = (done_future,) + other_dir_futures
         audio_filepaths = tuple(futures[f][1] for f in dir_futures if futures[f][1] != ALBUM_GAIN_KEY)
 
         # get analysis results for this directory
@@ -673,12 +671,9 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
                                                                  e))
               error_count += 1
 
-        to_del_futures.add(done_future)
-        for f in other_dir_futures:
-          to_del_futures.add(f)
-
-      for to_del_future in to_del_futures:
-        del futures[to_del_future]
+        retained_futures -= set(other_dir_futures)
+        for f in dir_futures:
+          del futures[f]
 
   executor.shutdown(True)
 
