@@ -96,12 +96,6 @@ def get_ffmpeg_lib_versions(ffmpeg_path=None):
   return r
 
 
-def format_ffmpeg_filter(name, params):
-  """ Build a string to call a FFMpeg filter. """
-  return "%s=%s" % (name,
-                    ":".join("%s=%s" % (k, v) for k, v in params.items()))
-
-
 def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None,
                       start_evt=None):
   """ Get R128 loudness loudness level and sample peak. """
