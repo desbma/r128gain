@@ -150,6 +150,14 @@ class TestR128Gain(unittest.TestCase):
                               self.silence_mp3_filepath: (-70.0, 0.0),
                               0: (-10.9, 1.0)})
 
+    # for "loudest" album mode
+    self.ref_levels_loudest = self.ref_levels.copy()
+    self.ref_levels_loudest.update({0: (-3.3, 1.0)})
+
+    self.ref_levels_loudest_2 = self.ref_levels_2.copy()
+    self.ref_levels_loudest_2.update({self.opus_filepath: (-14.7, 1.0),
+                                      0: (-3.3, 1.0)})
+
     self.max_peak_filepath = self.vorbis_filepath
 
   def tearDown(self):
@@ -180,7 +188,7 @@ class TestR128Gain(unittest.TestCase):
     self.assertAlmostEqual(r128gain.scale_to_gain(1.234567), 1.830293, places=6)
 
   def test_scan(self):
-    for album_gain in (False, True):
+    for album_gain in (None, "standard", "loudest"):
       # bunch of different files
       filepaths = (self.vorbis_filepath,
                    self.opus_filepath,
@@ -191,7 +199,7 @@ class TestR128Gain(unittest.TestCase):
                    self.wv_filepath,
                    self.silence_wv_filepath,
                    self.silence_mp3_filepath)
-      ref_levels = self.ref_levels_2.copy()
+      ref_levels = self.ref_levels_loudest_2.copy() if album_gain == "loudest" else self.ref_levels_2.copy()
       if not album_gain:
         del ref_levels[r128gain.ALBUM_GAIN_KEY]
       self.assertEqual(r128gain.scan(filepaths,
@@ -214,7 +222,7 @@ class TestR128Gain(unittest.TestCase):
                      self.m4a_filepath,
                      self.mp3_filepath)
         ref_levels = r128gain.scan(filepaths,
-                                   album_gain=True)
+                                   album_gain=album_gain)
         if IS_TRAVIS:
           shuffled_filepaths_len = len(tuple(itertools.permutations(filepaths)))
         for i, shuffled_filepaths in enumerate(itertools.permutations(filepaths), 1):
@@ -223,7 +231,7 @@ class TestR128Gain(unittest.TestCase):
           if IS_TRAVIS:
             print("Testing permutation %u/%u..." % (i, shuffled_filepaths_len))
           self.assertEqual(r128gain.scan(shuffled_filepaths,
-                                         album_gain=True),
+                                         album_gain=album_gain),
                            ref_levels)
 
   def test_tag(self):
@@ -340,413 +348,436 @@ class TestR128Gain(unittest.TestCase):
     ref_loudness_rg2 = -18
     ref_loudness_opus = -23
 
-    files = (self.vorbis_filepath,
-             self.opus_filepath,
-             self.mp3_filepath,
-             self.m4a_filepath,
-             self.flac_filepath,
-             self.wv_filepath)
+    for album_mode_i, album_mode in enumerate(("standard", "loudest")):
 
-    for i, skip_tagged in enumerate((True, False, True)):
+      if album_mode_i > 0:
+        self.tearDown()
+        self.setUp()
 
-      if i == 0:
-        for file in files:
-          self.assertEqual(r128gain.has_loudness_tag(file), (False, False))
+      files = (self.vorbis_filepath,
+               self.opus_filepath,
+               self.mp3_filepath,
+               self.m4a_filepath,
+               self.flac_filepath,
+               self.wv_filepath)
 
-      for album_gain in (False, True):
-        with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), \
-                unittest.mock.patch("r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness) as get_r128_loudness_mock:
+      for i, skip_tagged in enumerate((True, False, True)):
 
-          r128gain.process(files,
-                           album_gain=album_gain,
-                           skip_tagged=skip_tagged)
-
-          if skip_tagged and (i > 0):
-            self.assertEqual(get_r128_loudness_mock.call_count, 0)
-          elif album_gain and skip_tagged:
-            self.assertEqual(get_r128_loudness_mock.call_count, 1)
-          elif album_gain and not skip_tagged:
-            self.assertEqual(get_r128_loudness_mock.call_count, 7)
-          else:
-            self.assertEqual(get_r128_loudness_mock.call_count, 6)
-
+        if i == 0:
           for file in files:
-            self.assertEqual(r128gain.has_loudness_tag(file), (True, album_gain or (i > 0)))
+            self.assertEqual(r128gain.has_loudness_tag(file), (False, False))
 
-          mf = mutagen.File(self.vorbis_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.vorbis_filepath][0])])
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
-                           ["%.8f" % (self.ref_levels[self.vorbis_filepath][1])])
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                             ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
-                             ["%.8f" % (self.ref_levels[self.max_peak_filepath][1])])
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+        for album_gain in (None, album_mode):
+          with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), \
+                  unittest.mock.patch("r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness) as get_r128_loudness_mock:
 
-          mf = mutagen.File(self.opus_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("R128_TRACK_GAIN", mf)
-          self.assertEqual(mf["R128_TRACK_GAIN"],
-                           [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[self.opus_filepath][0]))])
-          if album_gain:
-            self.assertIn("R128_ALBUM_GAIN", mf)
-            self.assertEqual(mf["R128_ALBUM_GAIN"],
-                             [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))])
-          elif i == 0:
-            self.assertNotIn("R128_ALBUM_GAIN", mf)
+            r128gain.process(files,
+                             album_gain=album_gain,
+                             skip_tagged=skip_tagged)
 
-          mf = mutagen.File(self.mp3_filepath)
-          self.assertIsInstance(mf.tags, mutagen.id3.ID3)
-          self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.mp3_filepath][0])])
-          self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
-                           ["%.6f" % (self.ref_levels[self.mp3_filepath][1])])
-          if album_gain:
-            self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
-                             ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
-            self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
-                             ["%.6f" % (self.ref_levels[self.max_peak_filepath][1])])
-          elif i == 0:
-            self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+            if skip_tagged and (i > 0):
+              self.assertEqual(get_r128_loudness_mock.call_count, 0)
+            elif album_gain == "standard":
+              if skip_tagged:
+                self.assertEqual(get_r128_loudness_mock.call_count, 1)
+              else:
+                self.assertEqual(get_r128_loudness_mock.call_count, 7)
+            else:
+              self.assertEqual(get_r128_loudness_mock.call_count, 6)
 
-          mf = mutagen.File(self.m4a_filepath)
-          self.assertIsInstance(mf.tags, mutagen.mp4.MP4Tags)
-          self.assertIn("----:com.apple.iTunes:replaygain_track_gain", mf)
-          self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_gain"]), 1)
-          self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_gain"][0]).decode(),
-                           "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.m4a_filepath][0]))
-          self.assertIn("----:com.apple.iTunes:replaygain_track_peak", mf)
-          self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_peak"]), 1)
-          self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_peak"][0]).decode(),
-                           "%.6f" % (self.ref_levels[self.m4a_filepath][1]))
-          if album_gain:
-            self.assertIn("----:com.apple.iTunes:replaygain_album_gain", mf)
-            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_gain"]), 1)
-            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(),
-                             "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
-            self.assertIn("----:com.apple.iTunes:replaygain_album_peak", mf)
-            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_peak"]), 1)
-            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_peak"][0]).decode(),
-                             "%.6f" % (self.ref_levels[self.max_peak_filepath][1]))
-          elif i == 0:
-            self.assertNotIn("----:com.apple.iTunes:replaygain_album_gain", mf)
-            self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+            for file in files:
+              self.assertEqual(r128gain.has_loudness_tag(file), (True, album_gain is not None or (i > 0)))
 
-          mf = mutagen.File(self.flac_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.flac_filepath][0])])
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
-                           ["%.8f" % (self.ref_levels[self.flac_filepath][1])])
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                             ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
-                             ["%.8f" % (self.ref_levels[self.max_peak_filepath][1])])
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+            ref_levels = self.ref_levels_loudest if album_gain == "loudest" else self.ref_levels
 
-          mf = mutagen.File(self.wv_filepath)
-          self.assertIsInstance(mf.tags, mutagen.apev2.APEv2)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(str(mf["REPLAYGAIN_TRACK_GAIN"]),
-                           "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.wv_filepath][0]))
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(str(mf["REPLAYGAIN_TRACK_PEAK"]),
-                           "%.8f" % (self.ref_levels[self.wv_filepath][1]))
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
-                             "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
-                             "%.8f" % (self.ref_levels[self.max_peak_filepath][1]))
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+            mf = mutagen.File(self.vorbis_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.vorbis_filepath][0])])
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
+                             ["%.8f" % (ref_levels[self.vorbis_filepath][1])])
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
+                               ["%.2f dB" % (ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
+                               ["%.8f" % (ref_levels[self.max_peak_filepath][1])])
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+
+            mf = mutagen.File(self.opus_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("R128_TRACK_GAIN", mf)
+            self.assertEqual(mf["R128_TRACK_GAIN"],
+                             [str(r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels[self.opus_filepath][0]))])
+            if album_gain:
+              self.assertIn("R128_ALBUM_GAIN", mf)
+              self.assertEqual(mf["R128_ALBUM_GAIN"],
+                               [str(r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels[r128gain.ALBUM_GAIN_KEY][0]))])
+            elif i == 0:
+              self.assertNotIn("R128_ALBUM_GAIN", mf)
+
+            mf = mutagen.File(self.mp3_filepath)
+            self.assertIsInstance(mf.tags, mutagen.id3.ID3)
+            self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.mp3_filepath][0])])
+            self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
+                             ["%.6f" % (ref_levels[self.mp3_filepath][1])])
+            if album_gain:
+              self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
+                               ["%.2f dB" % (ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
+              self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
+                               ["%.6f" % (ref_levels[self.max_peak_filepath][1])])
+            elif i == 0:
+              self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+
+            mf = mutagen.File(self.m4a_filepath)
+            self.assertIsInstance(mf.tags, mutagen.mp4.MP4Tags)
+            self.assertIn("----:com.apple.iTunes:replaygain_track_gain", mf)
+            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_gain"]), 1)
+            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_gain"][0]).decode(),
+                             "%.2f dB" % (ref_loudness_rg2 - ref_levels[self.m4a_filepath][0]))
+            self.assertIn("----:com.apple.iTunes:replaygain_track_peak", mf)
+            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_peak"]), 1)
+            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_peak"][0]).decode(),
+                             "%.6f" % (ref_levels[self.m4a_filepath][1]))
+            if album_gain:
+              self.assertIn("----:com.apple.iTunes:replaygain_album_gain", mf)
+              self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_gain"]), 1)
+              self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(),
+                               "%.2f dB" % (ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
+              self.assertIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+              self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_peak"]), 1)
+              self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_peak"][0]).decode(),
+                               "%.6f" % (ref_levels[self.max_peak_filepath][1]))
+            elif i == 0:
+              self.assertNotIn("----:com.apple.iTunes:replaygain_album_gain", mf)
+              self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+
+            mf = mutagen.File(self.flac_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.flac_filepath][0])])
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
+                             ["%.8f" % (ref_levels[self.flac_filepath][1])])
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
+                               ["%.2f dB" % (ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])])
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
+                               ["%.8f" % (ref_levels[self.max_peak_filepath][1])])
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+
+            mf = mutagen.File(self.wv_filepath)
+            self.assertIsInstance(mf.tags, mutagen.apev2.APEv2)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(str(mf["REPLAYGAIN_TRACK_GAIN"]),
+                             "%.2f dB" % (ref_loudness_rg2 - ref_levels[self.wv_filepath][0]))
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(str(mf["REPLAYGAIN_TRACK_PEAK"]),
+                             "%.8f" % (ref_levels[self.wv_filepath][1]))
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
+                               "%.2f dB" % (ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0]))
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
+                               "%.8f" % (ref_levels[self.max_peak_filepath][1]))
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
   def test_process_recursive(self):
     ref_loudness_rg2 = -18
     ref_loudness_opus = -23
 
-    os.remove(self.flac_filepath_2)
+    for album_mode_i, album_mode in enumerate(("standard", "loudest")):
 
-    album_dir1 = os.path.join(self.temp_dir.name, "a")
-    os.mkdir(album_dir1)
-    album1_vorbis_filepath = os.path.join(album_dir1,
-                                          os.path.basename(self.vorbis_filepath))
-    shutil.copyfile(self.vorbis_filepath, album1_vorbis_filepath)
-    album1_opus_filepath = os.path.join(album_dir1,
-                                        os.path.basename(self.opus_filepath))
-    shutil.copyfile(self.opus_filepath, album1_opus_filepath)
+      if album_mode_i > 0:
+        self.tearDown()
+        self.setUp()
 
-    album_dir2 = os.path.join(self.temp_dir.name, "b")
-    os.mkdir(album_dir2)
-    album2_mp3_filepath = os.path.join(album_dir2,
-                                       os.path.basename(self.mp3_filepath))
-    shutil.copyfile(self.mp3_filepath, album2_mp3_filepath)
-    album2_m4a_filepath = os.path.join(album_dir2,
-                                       os.path.basename(self.m4a_filepath))
-    shutil.copyfile(self.m4a_filepath, album2_m4a_filepath)
-    album2_dummy_filepath = os.path.join(album_dir2, "dummy.txt")
-    with open(album2_dummy_filepath, "wb") as f:
-      f.write(b"\x00")
+      os.remove(self.flac_filepath_2)
 
-    ref_levels_dir1 = (-13, 1.0)
-    ref_levels_dir2 = (-17.3, 0.942810)
+      album_dir1 = os.path.join(self.temp_dir.name, "a")
+      os.mkdir(album_dir1)
+      album1_vorbis_filepath = os.path.join(album_dir1,
+                                            os.path.basename(self.vorbis_filepath))
+      shutil.copyfile(self.vorbis_filepath, album1_vorbis_filepath)
+      album1_opus_filepath = os.path.join(album_dir1,
+                                          os.path.basename(self.opus_filepath))
+      shutil.copyfile(self.opus_filepath, album1_opus_filepath)
 
-    # directory tree is as follows (root is self.temp_dir.name):
-    # ├── a
-    # │   ├── f.ogg
-    # │   └── f.opus
-    # ├── b
-    # │   ├── dummy.txt
-    # │   ├── f.m4a
-    # │   └── f.mp3
-    # ├── f.flac
-    # ├── f.m4a
-    # ├── f.mp3
-    # ├── f.ogg
-    # ├── f.opus
-    # └── f.wv
+      album_dir2 = os.path.join(self.temp_dir.name, "b")
+      os.mkdir(album_dir2)
+      album2_mp3_filepath = os.path.join(album_dir2,
+                                         os.path.basename(self.mp3_filepath))
+      shutil.copyfile(self.mp3_filepath, album2_mp3_filepath)
+      album2_m4a_filepath = os.path.join(album_dir2,
+                                         os.path.basename(self.m4a_filepath))
+      shutil.copyfile(self.m4a_filepath, album2_m4a_filepath)
+      album2_dummy_filepath = os.path.join(album_dir2, "dummy.txt")
+      with open(album2_dummy_filepath, "wb") as f:
+        f.write(b"\x00")
 
-    for i, skip_tagged in enumerate((True, False, True)):
+      # directory tree is as follows (root is self.temp_dir.name):
+      # ├── a
+      # │   ├── f.ogg
+      # │   └── f.opus
+      # ├── b
+      # │   ├── dummy.txt
+      # │   ├── f.m4a
+      # │   └── f.mp3
+      # ├── f.flac
+      # ├── f.m4a
+      # ├── f.mp3
+      # ├── f.ogg
+      # ├── f.opus
+      # └── f.wv
 
-      for album_gain in (False, True):
-        with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), \
-                unittest.mock.patch("r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness) as get_r128_loudness_mock:
+      for i, skip_tagged in enumerate((True, False, True)):
 
-          r128gain.process_recursive((self.temp_dir.name,),
-                                     album_gain=album_gain,
-                                     skip_tagged=skip_tagged)
+        for album_gain in (None, album_mode):
+          with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), \
+                  unittest.mock.patch("r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness) as get_r128_loudness_mock:
 
-          if skip_tagged and (i > 0):
-            self.assertEqual(get_r128_loudness_mock.call_count, 0)
-          elif album_gain and skip_tagged:
-            self.assertEqual(get_r128_loudness_mock.call_count, 3)
-          elif album_gain and not skip_tagged:
-            self.assertEqual(get_r128_loudness_mock.call_count, 15)
-          else:
-            self.assertEqual(get_r128_loudness_mock.call_count, 12)
+            r128gain.process_recursive((self.temp_dir.name,),
+                                       album_gain=album_gain,
+                                       skip_tagged=skip_tagged)
 
-          # root tmp dir
+            if skip_tagged and (i > 0):
+              self.assertEqual(get_r128_loudness_mock.call_count, 0)
+            elif album_gain == "standard":
+              if skip_tagged:
+                self.assertEqual(get_r128_loudness_mock.call_count, 3)
+              else:
+                self.assertEqual(get_r128_loudness_mock.call_count, 15)
+            else:
+              self.assertEqual(get_r128_loudness_mock.call_count, 12)
 
-          mf = mutagen.File(self.vorbis_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.vorbis_filepath][0])])
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
-                           ["%.8f" % (self.ref_levels[self.vorbis_filepath][1])])
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(len(mf["REPLAYGAIN_ALBUM_GAIN"]), 1)
-            self.assertValidGainStr(mf["REPLAYGAIN_ALBUM_GAIN"][0], 2)
-            self.assertGainStrAlmostEqual(mf["REPLAYGAIN_ALBUM_GAIN"][0],
-                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
-                             ["%.8f" % (self.ref_levels[self.max_peak_filepath][1])])
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+            # root tmp dir
 
-          mf = mutagen.File(self.opus_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("R128_TRACK_GAIN", mf)
-          self.assertEqual(mf["R128_TRACK_GAIN"],
-                           [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[self.opus_filepath][0]))])
-          if album_gain:
-            self.assertIn("R128_ALBUM_GAIN", mf)
-            self.assertEqual(len(mf["R128_ALBUM_GAIN"]), 1)
-            self.assertIsInstance(mf["R128_ALBUM_GAIN"][0], str)
-            ref_q7dot8 = r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
-            self.assertTrue(ref_q7dot8 - 30 <= int(mf["R128_ALBUM_GAIN"][0]) <= ref_q7dot8 + 30)
-          elif i == 0:
-            self.assertNotIn("R128_ALBUM_GAIN", mf)
+            if album_gain == "loudest":
+              ref_levels = self.ref_levels_loudest
+              ref_levels_dir1 = (-7.7, 1.0)
+              ref_levels_dir2 = (-13.9, 0.942810)
+            else:
+              ref_levels = self.ref_levels
+              ref_levels_dir1 = (-13, 1.0)
+              ref_levels_dir2 = (-17.3, 0.942810)
 
-          mf = mutagen.File(self.mp3_filepath)
-          self.assertIsInstance(mf.tags, mutagen.id3.ID3)
-          self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.mp3_filepath][0])])
-          self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
-                           ["%.6f" % (self.ref_levels[self.mp3_filepath][1])])
-          if album_gain:
-            self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(len(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text), 1)
-            self.assertValidGainStr(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text[0], 2)
-            self.assertGainStrAlmostEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text[0],
-                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
-            self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
-                             ["%.6f" % (self.ref_levels[self.max_peak_filepath][1])])
-          elif i == 0:
-            self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
 
-          mf = mutagen.File(self.m4a_filepath)
-          self.assertIsInstance(mf.tags, mutagen.mp4.MP4Tags)
-          self.assertIn("----:com.apple.iTunes:replaygain_track_gain", mf)
-          self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_gain"]), 1)
-          self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_gain"][0]).decode(),
-                           "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.m4a_filepath][0]))
-          self.assertIn("----:com.apple.iTunes:replaygain_track_peak", mf)
-          self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_peak"]), 1)
-          self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_peak"][0]).decode(),
-                           "%.6f" % (self.ref_levels[self.m4a_filepath][1]))
-          if album_gain:
-            self.assertIn("----:com.apple.iTunes:replaygain_album_gain", mf)
-            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_gain"]), 1)
-            self.assertValidGainStr(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(), 2)
-            self.assertGainStrAlmostEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(),
-                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
-            self.assertIn("----:com.apple.iTunes:replaygain_album_peak", mf)
-            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_peak"]), 1)
-            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_peak"][0]).decode(),
-                             "%.6f" % (self.ref_levels[self.max_peak_filepath][1]))
-          elif i == 0:
-            self.assertNotIn("----:com.apple.iTunes:replaygain_album_gain", mf)
-            self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+            mf = mutagen.File(self.vorbis_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.vorbis_filepath][0])])
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
+                             ["%.8f" % (ref_levels[self.vorbis_filepath][1])])
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(len(mf["REPLAYGAIN_ALBUM_GAIN"]), 1)
+              self.assertValidGainStr(mf["REPLAYGAIN_ALBUM_GAIN"][0], 2)
+              self.assertGainStrAlmostEqual(mf["REPLAYGAIN_ALBUM_GAIN"][0],
+                                            ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
+                               ["%.8f" % (ref_levels[self.max_peak_filepath][1])])
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
-          mf = mutagen.File(self.flac_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.flac_filepath][0])])
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
-                           ["%.8f" % (self.ref_levels[self.flac_filepath][1])])
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(len(mf["REPLAYGAIN_ALBUM_GAIN"]), 1)
-            self.assertValidGainStr(mf["REPLAYGAIN_ALBUM_GAIN"][0], 2)
-            self.assertGainStrAlmostEqual(mf["REPLAYGAIN_ALBUM_GAIN"][0],
-                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
-                             ["%.8f" % (self.ref_levels[self.max_peak_filepath][1])])
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+            mf = mutagen.File(self.opus_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("R128_TRACK_GAIN", mf)
+            self.assertEqual(mf["R128_TRACK_GAIN"],
+                             [str(r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels[self.opus_filepath][0]))])
+            if album_gain:
+              self.assertIn("R128_ALBUM_GAIN", mf)
+              self.assertEqual(len(mf["R128_ALBUM_GAIN"]), 1)
+              self.assertIsInstance(mf["R128_ALBUM_GAIN"][0], str)
+              ref_q7dot8 = r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+              self.assertTrue(ref_q7dot8 - 30 <= int(mf["R128_ALBUM_GAIN"][0]) <= ref_q7dot8 + 30)
+            elif i == 0:
+              self.assertNotIn("R128_ALBUM_GAIN", mf)
 
-          mf = mutagen.File(self.wv_filepath)
-          self.assertIsInstance(mf.tags, mutagen.apev2.APEv2)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(str(mf["REPLAYGAIN_TRACK_GAIN"]),
-                           "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.wv_filepath][0]))
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(str(mf["REPLAYGAIN_TRACK_PEAK"]),
-                           "%.8f" % (self.ref_levels[self.wv_filepath][1]))
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertValidGainStr(str(mf["REPLAYGAIN_ALBUM_GAIN"]), 2)
-            self.assertGainStrAlmostEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
-                                          ref_loudness_rg2 - self.ref_levels[r128gain.ALBUM_GAIN_KEY][0])
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
-                             "%.8f" % (self.ref_levels[self.max_peak_filepath][1]))
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+            mf = mutagen.File(self.mp3_filepath)
+            self.assertIsInstance(mf.tags, mutagen.id3.ID3)
+            self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.mp3_filepath][0])])
+            self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
+                             ["%.6f" % (ref_levels[self.mp3_filepath][1])])
+            if album_gain:
+              self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(len(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text), 1)
+              self.assertValidGainStr(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text[0], 2)
+              self.assertGainStrAlmostEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text[0],
+                                            ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+              self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
+                               ["%.6f" % (ref_levels[self.max_peak_filepath][1])])
+            elif i == 0:
+              self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
 
-          # dir 1
+            mf = mutagen.File(self.m4a_filepath)
+            self.assertIsInstance(mf.tags, mutagen.mp4.MP4Tags)
+            self.assertIn("----:com.apple.iTunes:replaygain_track_gain", mf)
+            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_gain"]), 1)
+            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_gain"][0]).decode(),
+                             "%.2f dB" % (ref_loudness_rg2 - ref_levels[self.m4a_filepath][0]))
+            self.assertIn("----:com.apple.iTunes:replaygain_track_peak", mf)
+            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_peak"]), 1)
+            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_peak"][0]).decode(),
+                             "%.6f" % (ref_levels[self.m4a_filepath][1]))
+            if album_gain:
+              self.assertIn("----:com.apple.iTunes:replaygain_album_gain", mf)
+              self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_gain"]), 1)
+              self.assertValidGainStr(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(), 2)
+              self.assertGainStrAlmostEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(),
+                                            ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+              self.assertIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+              self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_peak"]), 1)
+              self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_peak"][0]).decode(),
+                               "%.6f" % (ref_levels[self.max_peak_filepath][1]))
+            elif i == 0:
+              self.assertNotIn("----:com.apple.iTunes:replaygain_album_gain", mf)
+              self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
 
-          mf = mutagen.File(album1_vorbis_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.vorbis_filepath][0])])
-          self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
-                           ["%.8f" % (self.ref_levels[self.vorbis_filepath][1])])
-          if album_gain:
-            self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
-                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels_dir1[0])])
-            self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
-                             ["%.8f" % (ref_levels_dir1[1])])
-          elif i == 0:
-            self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
+            mf = mutagen.File(self.flac_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.flac_filepath][0])])
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
+                             ["%.8f" % (ref_levels[self.flac_filepath][1])])
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(len(mf["REPLAYGAIN_ALBUM_GAIN"]), 1)
+              self.assertValidGainStr(mf["REPLAYGAIN_ALBUM_GAIN"][0], 2)
+              self.assertGainStrAlmostEqual(mf["REPLAYGAIN_ALBUM_GAIN"][0],
+                                            ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
+                               ["%.8f" % (ref_levels[self.max_peak_filepath][1])])
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
-          mf = mutagen.File(album1_opus_filepath)
-          self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
-          self.assertIn("R128_TRACK_GAIN", mf)
-          self.assertEqual(mf["R128_TRACK_GAIN"],
-                           [str(r128gain.float_to_q7dot8(ref_loudness_opus - self.ref_levels[self.opus_filepath][0]))])
-          if album_gain:
-            self.assertIn("R128_ALBUM_GAIN", mf)
-            self.assertEqual(mf["R128_ALBUM_GAIN"],
-                             [str(r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels_dir1[0]))])
-          elif i == 0:
-            self.assertNotIn("R128_ALBUM_GAIN", mf)
+            mf = mutagen.File(self.wv_filepath)
+            self.assertIsInstance(mf.tags, mutagen.apev2.APEv2)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(str(mf["REPLAYGAIN_TRACK_GAIN"]),
+                             "%.2f dB" % (ref_loudness_rg2 - ref_levels[self.wv_filepath][0]))
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(str(mf["REPLAYGAIN_TRACK_PEAK"]),
+                             "%.8f" % (ref_levels[self.wv_filepath][1]))
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertValidGainStr(str(mf["REPLAYGAIN_ALBUM_GAIN"]), 2)
+              self.assertGainStrAlmostEqual(str(mf["REPLAYGAIN_ALBUM_GAIN"]),
+                                            ref_loudness_rg2 - ref_levels[r128gain.ALBUM_GAIN_KEY][0])
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(str(mf["REPLAYGAIN_ALBUM_PEAK"]),
+                               "%.8f" % (ref_levels[self.max_peak_filepath][1]))
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
-          # dir 2
+            # dir 1
 
-          mf = mutagen.File(album2_mp3_filepath)
-          self.assertIsInstance(mf.tags, mutagen.id3.ID3)
-          self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
-                           ["%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.mp3_filepath][0])])
-          self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
-          self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
-                           ["%.6f" % (self.ref_levels[self.mp3_filepath][1])])
-          if album_gain:
-            self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
-                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels_dir2[0])])
-            self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
-            self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
-                             ["%.6f" % (ref_levels_dir2[1])])
-          elif i == 0:
-            self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
-            self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+            mf = mutagen.File(album1_vorbis_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_GAIN"],
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.vorbis_filepath][0])])
+            self.assertIn("REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["REPLAYGAIN_TRACK_PEAK"],
+                             ["%.8f" % (ref_levels[self.vorbis_filepath][1])])
+            if album_gain:
+              self.assertIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_GAIN"],
+                               ["%.2f dB" % (ref_loudness_rg2 - ref_levels_dir1[0])])
+              self.assertIn("REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["REPLAYGAIN_ALBUM_PEAK"],
+                               ["%.8f" % (ref_levels_dir1[1])])
+            elif i == 0:
+              self.assertNotIn("REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
-          mf = mutagen.File(album2_m4a_filepath)
-          self.assertIsInstance(mf.tags, mutagen.mp4.MP4Tags)
-          self.assertIn("----:com.apple.iTunes:replaygain_track_gain", mf)
-          self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_gain"]), 1)
-          self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_gain"][0]).decode(),
-                           "%.2f dB" % (ref_loudness_rg2 - self.ref_levels[self.m4a_filepath][0]))
-          self.assertIn("----:com.apple.iTunes:replaygain_track_peak", mf)
-          self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_peak"]), 1)
-          self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_peak"][0]).decode(),
-                           "%.6f" % (self.ref_levels[self.m4a_filepath][1]))
-          if album_gain:
-            self.assertIn("----:com.apple.iTunes:replaygain_album_gain", mf)
-            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_gain"]), 1)
-            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(),
-                             "%.2f dB" % (ref_loudness_rg2 - ref_levels_dir2[0]))
-            self.assertIn("----:com.apple.iTunes:replaygain_album_peak", mf)
-            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_peak"]), 1)
-            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_peak"][0]).decode(),
-                             "%.6f" % (ref_levels_dir2[1]))
-          elif i == 0:
-            self.assertNotIn("----:com.apple.iTunes:replaygain_album_gain", mf)
-            self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+            mf = mutagen.File(album1_opus_filepath)
+            self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
+            self.assertIn("R128_TRACK_GAIN", mf)
+            self.assertEqual(mf["R128_TRACK_GAIN"],
+                             [str(r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels[self.opus_filepath][0]))])
+            if album_gain:
+              self.assertIn("R128_ALBUM_GAIN", mf)
+              self.assertEqual(mf["R128_ALBUM_GAIN"],
+                               [str(r128gain.float_to_q7dot8(ref_loudness_opus - ref_levels_dir1[0]))])
+            elif i == 0:
+              self.assertNotIn("R128_ALBUM_GAIN", mf)
+
+            # dir 2
+
+            mf = mutagen.File(album2_mp3_filepath)
+            self.assertIsInstance(mf.tags, mutagen.id3.ID3)
+            self.assertIn("TXXX:REPLAYGAIN_TRACK_GAIN", mf)
+            self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_GAIN"].text,
+                             ["%.2f dB" % (ref_loudness_rg2 - ref_levels[self.mp3_filepath][0])])
+            self.assertIn("TXXX:REPLAYGAIN_TRACK_PEAK", mf)
+            self.assertEqual(mf["TXXX:REPLAYGAIN_TRACK_PEAK"].text,
+                             ["%.6f" % (ref_levels[self.mp3_filepath][1])])
+            if album_gain:
+              self.assertIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_GAIN"].text,
+                               ["%.2f dB" % (ref_loudness_rg2 - ref_levels_dir2[0])])
+              self.assertIn("TXXX:REPLAYGAIN_ALBUM_PEAK", mf)
+              self.assertEqual(mf["TXXX:REPLAYGAIN_ALBUM_PEAK"].text,
+                               ["%.6f" % (ref_levels_dir2[1])])
+            elif i == 0:
+              self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+              self.assertNotIn("TXXX:REPLAYGAIN_ALBUM_GAIN", mf)
+
+            mf = mutagen.File(album2_m4a_filepath)
+            self.assertIsInstance(mf.tags, mutagen.mp4.MP4Tags)
+            self.assertIn("----:com.apple.iTunes:replaygain_track_gain", mf)
+            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_gain"]), 1)
+            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_gain"][0]).decode(),
+                             "%.2f dB" % (ref_loudness_rg2 - ref_levels[self.m4a_filepath][0]))
+            self.assertIn("----:com.apple.iTunes:replaygain_track_peak", mf)
+            self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_track_peak"]), 1)
+            self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_track_peak"][0]).decode(),
+                             "%.6f" % (ref_levels[self.m4a_filepath][1]))
+            if album_gain:
+              self.assertIn("----:com.apple.iTunes:replaygain_album_gain", mf)
+              self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_gain"]), 1)
+              self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_gain"][0]).decode(),
+                               "%.2f dB" % (ref_loudness_rg2 - ref_levels_dir2[0]))
+              self.assertIn("----:com.apple.iTunes:replaygain_album_peak", mf)
+              self.assertEqual(len(mf["----:com.apple.iTunes:replaygain_album_peak"]), 1)
+              self.assertEqual(bytes(mf["----:com.apple.iTunes:replaygain_album_peak"][0]).decode(),
+                               "%.6f" % (ref_levels_dir2[1]))
+            elif i == 0:
+              self.assertNotIn("----:com.apple.iTunes:replaygain_album_gain", mf)
+              self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
 
   def test_oggopus_output_gain(self):
     # non opus formats should not be parsed successfully

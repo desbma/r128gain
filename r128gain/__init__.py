@@ -185,7 +185,7 @@ def get_r128_loudness(audio_filepaths, *, calc_peak=True, enable_ffmpeg_threadin
   return r128_stats["I"], sample_peak
 
 
-def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=None, ffmpeg_path=None, executor=None,
+def scan(audio_filepaths, *, album_gain=None, skip_tagged=False, thread_count=None, ffmpeg_path=None, executor=None,
          progress=None, boxed_error_count=None, start_evt=None):
   """ Analyze files, and return a dictionary of filepath to loudness metadata or filepath to future if executor is not None. """
   r128_data = {}
@@ -194,7 +194,7 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
     if executor is None:
       if thread_count is None:
         thread_count = OPTIMAL_THREAD_COUNT
-      enable_ffmpeg_threading = thread_count > (len(audio_filepaths) + int(album_gain))
+      enable_ffmpeg_threading = thread_count > (len(audio_filepaths) + int(album_gain == "standard"))
       executor = cm.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=thread_count))
       asynchronous = False
     else:
@@ -209,31 +209,30 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
                                                                  loudness_tags) if has_tags is not None)
     loudness_tags = tuple(filter(None, loudness_tags))
 
+    album_missing = not all(map(operator.itemgetter(1), loudness_tags))
+    any_non_opus = any(os.path.splitext(fp)[-1].lower() != ".opus" for fp in audio_filepaths)
+
     futures = {}
-    if album_gain:
-      if skip_tagged and all(map(operator.itemgetter(1), loudness_tags)):
+    if album_gain == "standard":
+      if skip_tagged and not album_missing:
         logger().info("All files already have an album gain tag, skipping album gain scan")
       elif audio_filepaths:
-        calc_album_peak = any(map(lambda x: os.path.splitext(x)[-1].lower() != ".opus",
-                                  audio_filepaths))
         future = executor.submit(get_r128_loudness,
                                  audio_filepaths,
-                                 calc_peak=calc_album_peak,
+                                 calc_peak=any_non_opus,
                                  enable_ffmpeg_threading=enable_ffmpeg_threading,
                                  ffmpeg_path=ffmpeg_path,
                                  start_evt=start_evt)
         futures[future] = ALBUM_GAIN_KEY
+
     for audio_filepath in audio_filepaths:
-      if skip_tagged and has_loudness_tag(audio_filepath)[0]:
+      if skip_tagged and has_loudness_tag(audio_filepath)[0] and not(album_gain == "loudest" and album_missing):
         logger().info("File %r already has a track gain tag, skipping track gain scan" % (audio_filepath))
         # create dummy future
         future = executor.submit(lambda: None)
       else:
-        if os.path.splitext(audio_filepath)[-1].lower() == ".opus":
-          # http://www.rfcreader.com/#rfc7845_line1060
-          calc_peak = False
-        else:
-          calc_peak = True
+        opus = os.path.splitext(audio_filepath)[-1].lower() == ".opus"
+        calc_peak = not opus or (album_gain == "loudest" and any_non_opus)
         future = executor.submit(get_r128_loudness,
                                  (audio_filepath,),
                                  calc_peak=calc_peak,
@@ -273,6 +272,11 @@ def scan(audio_filepaths, *, album_gain=False, skip_tagged=False, thread_count=N
           progress.update(1)
 
         del futures[done_future]
+
+    if album_gain == "loudest" and r128_data:
+      louds = set(loud for loud, _ in r128_data.values())
+      peaks = set(peak for _, peak in r128_data.values())
+      r128_data[ALBUM_GAIN_KEY] = max(louds), max(peaks)
 
   return r128_data
 
@@ -479,12 +483,12 @@ def show_scan_report(audio_filepaths, album_dir, r128_data):
     logger().info("Album %r: loudness = %s, sample peak = %s" % (album_dir, album_loudness, album_peak))
 
 
-def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None, skip_tagged=False,
+def process(audio_filepaths, *, album_gain=None, opus_output_gain=False, mtime_second_offset=None, skip_tagged=False,
             thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   """ Analyze and tag input audio files. """
   error_count = 0
 
-  with dynamic_tqdm(total=len(audio_filepaths) + int(album_gain),
+  with dynamic_tqdm(total=len(audio_filepaths) + int(album_gain == "standard"),
                     desc="Analyzing audio loudness",
                     unit=" files",
                     leave=False) as progress:
@@ -532,7 +536,7 @@ def process(audio_filepaths, *, album_gain=False, opus_output_gain=False, mtime_
   return error_count
 
 
-def process_recursive(directories, *, album_gain=False, opus_output_gain=False, mtime_second_offset=None,
+def process_recursive(directories, *, album_gain=None, opus_output_gain=False, mtime_second_offset=None,
                       skip_tagged=False, thread_count=None, ffmpeg_path=None, dry_run=False, report=False):
   """ Analyze and tag all audio files recursively found in input directories. """
   error_count = 0
@@ -584,7 +588,7 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
       if progress is not None:
         progress.update(1)
 
-  with dynamic_tqdm(total=sum(map(len, albums_filepaths)) + int(album_gain) * len(albums_filepaths),
+  with dynamic_tqdm(total=len(futures),
                     desc="Analyzing audio loudness",
                     unit=" files",
                     leave=False,
@@ -633,6 +637,11 @@ def process_recursive(directories, *, album_gain=False, opus_output_gain=False, 
           else:
             if result is not None:
               r128_data[key] = result
+
+        if album_gain == "loudest" and r128_data:
+          louds = set(loud for loud, _ in r128_data.values())
+          peaks = set(peak for _, peak in r128_data.values())
+          r128_data[ALBUM_GAIN_KEY] = max(louds), max(peaks)
 
         if report and audio_filepaths:
           show_scan_report(audio_filepaths,
@@ -685,7 +694,13 @@ def cl_main():
                           "--album-gain",
                           action="store_true",
                           default=False,
-                          help="Enable album gain")
+                          help="Enable album gain. This uses standard LUFS measurement and will increase scan time significantly.")
+  arg_parser.add_argument("-l",
+                          "--album-gain-loudest",
+                          action="store_true",
+                          default=False,
+                          help="""Enable album gain in nonstandard "loudest" mode. This sets the album loudness from
+                                  the loudest track. Scan time is not increased.""")
   arg_parser.add_argument("-r",
                           "--recursive",
                           action="store_true",
@@ -766,10 +781,12 @@ def cl_main():
                                                      (lib_version >> 8) & 0xff)
                                    for lib_name, lib_version in ffmpeg_lib_versions.items())))
 
+  album_gain = "loudest" if args.album_gain_loudest else "standard" if args.album_gain else None
+
   # main
   if args.recursive:
     err_count = process_recursive(args.path,
-                                  album_gain=args.album_gain,
+                                  album_gain=album_gain,
                                   opus_output_gain=args.opus_output_gain,
                                   mtime_second_offset=args.mtime_second_offset,
                                   skip_tagged=args.skip_tagged,
@@ -779,7 +796,7 @@ def cl_main():
                                   report=logging.getLogger().isEnabledFor(logging.INFO) or args.dry_run)
   else:
     err_count = process(args.path,
-                        album_gain=args.album_gain,
+                        album_gain=album_gain,
                         opus_output_gain=args.opus_output_gain,
                         mtime_second_offset=args.mtime_second_offset,
                         skip_tagged=args.skip_tagged,
