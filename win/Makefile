@@ -108,11 +108,15 @@ ${OUTPUT_DIR}/libwinpthread-1.dll: ${WINPTHREAD_DLL}
 test_ut: ${LXML_INSTALLED} .requirements ${FFMPEG_INSTALLED} ${SOX_INSTALLED}
 	cd .. && ${WINE} ${PYTHON_INSTALLED} setup.py test
 
-test_freeze: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe ${OUTPUT_DIR}/libwinpthread-1.dll sample.ogg
-	${WINE} $< -v debug sample.ogg
+test_freeze: ${OUTPUT_DIR}/r128gain.exe ${OUTPUT_DIR}/python${PYTHON_VERSION_SHORT}.dll ${OUTPUT_DIR}/ffmpeg.exe ${OUTPUT_DIR}/libwinpthread-1.dll sample.ogg sample.opus
+	${WINE} $< -v debug sample.ogg sample.opus
 
 sample.ogg: ${DOWNLOAD_DIR}/sample.ogg
 	cp $< $@
+
+sample.opus: ${DOWNLOAD_DIR}/sample.opus
+	cp $< $@
+
 
 #
 # Installations
@@ -177,6 +181,10 @@ ${SOX_ZIP}:
 ${DOWNLOAD_DIR}/sample.ogg:
 	mkdir -p $(dir $@)
 	${CURL} https://upload.wikimedia.org/wikipedia/en/0/09/Opeth_-_Deliverance.ogg > $@
+
+${DOWNLOAD_DIR}/sample.opus:
+	mkdir -p $(dir $@)
+	${CURL} https://opus-codec.org/static/examples/ehren-paper_lights-96.opus > $@
 
 
 #
