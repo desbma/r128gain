@@ -26,7 +26,7 @@ jobs:
           key: ${{runner.os}}
       - uses: actions/cache@v2
         with:
-          path: ~/.cache/ci/r128gain/ffmpeg
+          path: ~/.cache/ci/r128gain
           key: ${{runner.os}}-ffmpeg-${{hashFiles('ci/build-minimal-ffmpeg')}}-${{matrix.ffmpeg-version}}
       - run: |
           sudo apt-get install yasm
@@ -40,3 +40,27 @@ jobs:
       - run: coveralls --service=github
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-win:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        win-version: ["win32", "win64"]
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo apt-get install p7zip-full mingw-w64
+      - if: ${{matrix.win-version ==  'win32'}}
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install wine32
+      - if: ${{matrix.win-version ==  'win64'}}
+        run: sudo apt-get install wine64
+      - run: make -C win all test
+        env:
+          DOWNLOAD_DIR: /home/runner/.cache/ci/r128gain/build
+          TEST_DL_CACHE_DIR: /home/runner/.cache/ci/r128gain/test
+          FFMPEG_CACHE_DIR: /home/runner/.cache/ci/r128gain/ffmpeg-${{matrix.win-version}}
+          FFMPEG_VERSION: 3.4
+          WINEARCH: ${{matrix.win-version}}
