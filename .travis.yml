@@ -4,8 +4,6 @@ cache:
   directories:
     - $HOME/.cache/ci/r128gain
 python:
-  - "3.5"
-  - "3.5-dev"
   - "3.6"
   - "3.6-dev"
   - "3.7"
@@ -34,7 +32,6 @@ matrix:
     - python: "3.6"
       env: WINDOWS=1 FFMPEG_VERSION=3.4
   allow_failures:
-    - python: "3.5-dev"
     - python: "3.6-dev"
     - python: "3.7-dev"
     - python: "3.8-dev"
