@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+# shellcheck disable=SC2155,SC2046
+
 set -o pipefail
 
 readonly FFMPEG_VERSION=${1:?}
@@ -9,7 +11,7 @@ readonly PROC_COUNT=$(grep -c '^processor' /proc/cpuinfo)
 
 
 configure() {
-  ./configure --prefix=$INSTALL_DIR \
+  ./configure --prefix="${INSTALL_DIR}" \
               --enable-gpl \
               --enable-version3 \
               --enable-static \
@@ -52,13 +54,13 @@ else
   branch_name=release/$FFMPEG_VERSION
 fi
 
-if [ -d $repo_dir ]
+if [ -d "${repo_dir}" ]
 then
   # repo dir already exists
-  cd $repo_dir
+  cd "${repo_dir}"
   git fetch
 
-  if [ "$(git rev-parse @)" != "$(git rev-parse origin/$branch_name)" ]
+  if [ "$(git rev-parse @)" != "$(git rev-parse origin/"${branch_name}")" ]
   then
     # update
     git pull
@@ -72,14 +74,14 @@ then
   fi
 else
   # clone & set branch
-  git clone https://git.ffmpeg.org/ffmpeg.git $repo_dir
-  cd $repo_dir
-  git checkout $branch_name
+  git clone https://git.ffmpeg.org/ffmpeg.git "${repo_dir}"
+  cd "${repo_dir}"
+  git checkout "${branch_name}"
 
   # configure
   configure
 fi
 
 # build
-make -j $PROC_COUNT
+make -j "${PROC_COUNT}"
 make install

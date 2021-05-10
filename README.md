@@ -1,7 +1,6 @@
-r128gain
-========
-Fast audio loudness scanner & tagger
-------------------------------------
+# r128gain
+
+## Fast audio loudness scanner & tagger
 
 [![PyPI version](https://img.shields.io/pypi/v/r128gain.svg?style=flat)](https://pypi.python.org/pypi/r128gain/)
 [![AUR version](https://img.shields.io/aur/version/r128gain.svg?style=flat)](https://aur.archlinux.org/packages/r128gain/)
@@ -15,15 +14,13 @@ r128gain can also be used as a Python module from other Python projects to scan 
 
 **This is beta software, please test and report bugs.**
 
-
 ## Features
 
-* Supports all common audio file formats (MP3, AAC, Vorbis, Opus, FLAC, WavPack...) and tag formats (ID3, Vorbis comments, MP4, APEv2...)
-* Writes tags compatible with music players reading track/album gain metadata
-* Supports new R128_XXX_GAIN tag format for Opus files (very few scanners write this tag, although it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
-* Supports writing gain to the [Opus *output gain* header](https://tools.ietf.org/html/rfc7845#page-15) (**experimental**)
-* Uses threading to optimally use processor cores resulting in very fast processing
-
+- Supports all common audio file formats (MP3, AAC, Vorbis, Opus, FLAC, WavPack...) and tag formats (ID3, Vorbis comments, MP4, APEv2...)
+- Writes tags compatible with music players reading track/album gain metadata
+- Supports new R128_XXX_GAIN tag format for Opus files (very few scanners write this tag, although it is defined in the [Opus standard](https://tools.ietf.org/html/rfc7845#section-5.2))
+- Supports writing gain to the [Opus _output gain_ header](https://tools.ietf.org/html/rfc7845#page-15) (**experimental**)
+- Uses threading to optimally use processor cores resulting in very fast processing
 
 ## Installation
 
@@ -47,18 +44,16 @@ Install r128gain using [pip](https://pip.pypa.io/en/stable/installing/): `pip3 i
 2. Clone this repository: `git clone https://github.com/desbma/r128gain`
 3. Install r128gain: `python3 setup.py install`
 
-
 ## Command line usage
 
 Run `r128gain -h` to get full command line reference.
 
 ### Examples
 
-* Scan a single file and display its loudness information: `r128gain -d an_audio_file.mp3`
-* Scan & tag a single file: `r128gain an_audio_file.mp3`
-* Scan & tag all audio files in `music_directory` and all its subdirectories: `r128gain -r music_directory`
-* Scan & tag all audio files in `music_directory` and all its subdirectories, and add album gain tags (files contained in each directory are considered as part of the same album): `r128gain -r -a music_directory`
-
+- Scan a single file and display its loudness information: `r128gain -d an_audio_file.mp3`
+- Scan & tag a single file: `r128gain an_audio_file.mp3`
+- Scan & tag all audio files in `music_directory` and all its subdirectories: `r128gain -r music_directory`
+- Scan & tag all audio files in `music_directory` and all its subdirectories, and add album gain tags (files contained in each directory are considered as part of the same album): `r128gain -r -a music_directory`
 
 ## License
 

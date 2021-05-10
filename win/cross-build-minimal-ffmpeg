@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+# shellcheck disable=SC2155,SC2046
+
 set -o pipefail
 
 readonly FFMPEG_VERSION=${1:?}
@@ -10,16 +12,17 @@ readonly PROC_COUNT=$(grep -c '^processor' /proc/cpuinfo)
 
 
 configure() {
-  if [ $ARCH = "win32" ]
+  if [ "${ARCH}" = "win32" ]
   then
     arch_params="--arch=x86 --target-os=mingw32 --cross-prefix=i686-w64-mingw32-"
-  elif [ $ARCH = "win64" ]
+  elif [ "${ARCH}" = "win64" ]
   then
     arch_params="--arch=x86 --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32-"
   else
     echo 'Invalid arch' >&2
     exit 1
   fi
+  # shellcheck disable=SC2086
   ./configure $arch_params \
               --enable-gpl \
               --enable-version3 \
@@ -61,13 +64,13 @@ else
   branch_name=release/$FFMPEG_VERSION
 fi
 
-if [ -d $repo_dir ]
+if [ -d "${repo_dir}" ]
 then
   # repo dir already exists
-  cd $repo_dir
+  cd "${repo_dir}"
   git fetch
 
-  if [ "$(git rev-parse @)" != "$(git rev-parse origin/$branch_name)" ]
+  if [ "$(git rev-parse @)" != "$(git rev-parse origin/"${branch_name}")" ]
   then
     # update
     git pull
@@ -81,15 +84,15 @@ then
   fi
 else
   # clone & set branch
-  git clone https://git.ffmpeg.org/ffmpeg.git $repo_dir
-  cd $repo_dir
-  git checkout $branch_name
+  git clone https://git.ffmpeg.org/ffmpeg.git "${repo_dir}"
+  cd "${repo_dir}"
+  git checkout "${branch_name}"
 
   # configure
   configure
 fi
 
 # build
-make -j $PROC_COUNT
+make -j "$PROC_COUNT"
 
 cp "$repo_dir/ffmpeg.exe" "$OUTPUT_FILE"
