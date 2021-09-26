@@ -1,6 +1,7 @@
 """ OggOpus parsing code. """
 
 import struct
+from typing import BinaryIO
 
 import crcmod
 
@@ -19,7 +20,7 @@ OGG_OPUS_ID_HEADER_GAIN = struct.Struct("<h")
 ogg_page_crc = crcmod.mkCrcFun(0x104C11DB7, initCrc=0, rev=False)
 
 
-def parse_oggopus_output_gain(file):
+def parse_oggopus_output_gain(file: BinaryIO) -> int:
     # noqa: D200
     """
     Parse an OggOpus file headers, read and return its output gain, and set file seek position to start of Opus header.
@@ -98,7 +99,7 @@ def parse_oggopus_output_gain(file):
     return output_gain
 
 
-def write_oggopus_output_gain(file, new_output_gain):
+def write_oggopus_output_gain(file: BinaryIO, new_output_gain: int) -> None:
     """
     Write output gain Opus header for a file.
 
@@ -121,7 +122,7 @@ def write_oggopus_output_gain(file, new_output_gain):
     file.write(OGG_FIRST_PAGE_HEADER_CRC.pack(computed_crc))
 
 
-def _compute_ogg_page_crc(page):
+def _compute_ogg_page_crc(page: bytes) -> int:
     """Compute CRC of an Ogg page."""
     page_zero_crc = (
         page[:OGG_FIRST_PAGE_HEADER_CRC_OFFSET]

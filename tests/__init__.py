@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 import unittest.mock
-import urllib
+import urllib.parse
 import zipfile
 
 import mutagen
@@ -25,7 +25,7 @@ import r128gain.opusgain
 IS_TRAVIS = os.getenv("CI") and os.getenv("TRAVIS")
 
 
-def download(url, filepath):
+def download(url: str, filepath: str):
     """Download URL to local file."""
     cache_dir = os.getenv("TEST_DL_CACHE_DIR")
     if cache_dir is not None:
