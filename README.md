@@ -4,7 +4,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/r128gain.svg?style=flat)](https://pypi.python.org/pypi/r128gain/)
 [![AUR version](https://img.shields.io/aur/version/r128gain.svg?style=flat)](https://aur.archlinux.org/packages/r128gain/)
-[![Tests status](https://img.shields.io/travis/desbma/r128gain/master.svg?label=tests&style=flat)](https://travis-ci.org/desbma/r128gain)
+[![Tests status](https://github.com/desbma/r128gain/actions/workflows/ci.yml/badge.svg)](https://github.com/desbma/r128gain/actions/)
 [![Coverage](https://img.shields.io/coveralls/desbma/r128gain/master.svg?style=flat)](https://coveralls.io/github/desbma/r128gain?branch=master)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/r128gain.svg?style=flat)](https://pypi.python.org/pypi/r128gain/)
 [![License](https://img.shields.io/github/license/desbma/r128gain.svg?style=flat)](https://github.com/desbma/r128gain/blob/master/LICENSE)
