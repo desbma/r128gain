@@ -49,13 +49,13 @@ except AttributeError:
 
 
 def logger():
-    """ Get default logger. """
+    """Get default logger."""
     return logging.getLogger("r128gain")
 
 
 @contextlib.contextmanager
 def dynamic_tqdm(*tqdm_args, **tqdm_kwargs):
-    """ Context manager that returns a tqdm object or None depending on context. """
+    """Context manager that returns a tqdm object or None depending on context."""
     with contextlib.ExitStack() as cm:
         if sys.stderr.isatty() and logger().isEnabledFor(logging.INFO):
             progress = cm.enter_context(tqdm.tqdm(*tqdm_args, **tqdm_kwargs))
@@ -66,7 +66,7 @@ def dynamic_tqdm(*tqdm_args, **tqdm_kwargs):
 
 
 def is_audio_filepath(filepath):
-    """ Return True if filepath is a supported audio file. """
+    """Return True if filepath is a supported audio file."""
     # TODO more robust way to identify audio files? (open with mutagen?)
     return os.path.splitext(filepath)[-1].lstrip(".").lower() in AUDIO_EXTENSIONS
 
@@ -97,7 +97,7 @@ def get_ffmpeg_lib_versions(ffmpeg_path=None):
 def get_r128_loudness(
     audio_filepaths, *, calc_peak=True, enable_ffmpeg_threading=True, ffmpeg_path=None, start_evt=None
 ):
-    """ Get R128 loudness loudness level and sample peak. """
+    """Get R128 loudness loudness level and sample peak."""
     if start_evt is not None:
         start_evt.wait()
 
@@ -297,18 +297,18 @@ def scan(
 
 
 def float_to_q7dot8(f):
-    """ Encode float f to a fixed point Q7.8 integer. """
+    """Encode float f to a fixed point Q7.8 integer."""
     # https://en.wikipedia.org/wiki/Q_(number_format)#Float_to_Q
     return int(round(f * (2 ** 8), 0))
 
 
 def gain_to_scale(gain):
-    """ Convert a gain value in dBFS to a float where 1.0 is 0 dBFS. """
+    """Convert a gain value in dBFS to a float where 1.0 is 0 dBFS."""
     return 10 ** (gain / 20)
 
 
 def scale_to_gain(scale):
-    """ Convert a float value to a gain where 0 dBFS is 1.0. """
+    """Convert a float value to a gain where 0 dBFS is 1.0."""
     if scale == 0:
         return -math.inf
     return 20 * math.log10(scale)
@@ -317,7 +317,7 @@ def scale_to_gain(scale):
 def tag(  # noqa: C901
     filepath, loudness, peak, *, album_loudness=None, album_peak=None, opus_output_gain=False, mtime_second_offset=None
 ):
-    """ Tag audio file with loudness metadata. """
+    """Tag audio file with loudness metadata."""
     assert (loudness is not None) or (album_loudness is not None)
 
     if peak is not None:
@@ -491,7 +491,7 @@ def has_loudness_tag(filepath):
 
 
 def show_scan_report(audio_filepaths, album_dir, r128_data):
-    """ Display loudness scan results. """
+    """Display loudness scan results."""
     # track loudness/peak
     for audio_filepath in audio_filepaths:
         try:
@@ -533,7 +533,7 @@ def process(
     dry_run=False,
     report=False
 ):
-    """ Analyze and tag input audio files. """
+    """Analyze and tag input audio files."""
     error_count = 0
 
     with dynamic_tqdm(
@@ -599,7 +599,7 @@ def process_recursive(  # noqa: C901
     dry_run=False,
     report=False
 ):
-    """ Analyze and tag all audio files recursively found in input directories. """
+    """Analyze and tag all audio files recursively found in input directories."""
     error_count = 0
 
     # walk directories
@@ -747,7 +747,7 @@ def process_recursive(  # noqa: C901
 
 
 def cl_main():
-    """ Command line entry point. """
+    """Command line entry point."""
     # parse args
     arg_parser = argparse.ArgumentParser(
         description="r128gain v%s.%s" % (__version__, __doc__), formatter_class=argparse.ArgumentDefaultsHelpFormatter

@@ -26,7 +26,7 @@ IS_TRAVIS = os.getenv("CI") and os.getenv("TRAVIS")
 
 
 def download(url, filepath):
-    """ Download URL to local file. """
+    """Download URL to local file."""
     cache_dir = os.getenv("TEST_DL_CACHE_DIR")
     if cache_dir is not None:
         os.makedirs(cache_dir, exist_ok=True)
@@ -44,11 +44,11 @@ def download(url, filepath):
 @unittest.skipUnless(shutil.which("sox") is not None, "SoX binary is needed")
 class TestR128Gain(unittest.TestCase):
 
-    """ r128gain test suite. """
+    """r128gain test suite."""
 
     @classmethod
     def setUpClass(cls):
-        """ Set up test suite stuff. """
+        """Set up test suite stuff."""
         cls.ref_temp_dir = tempfile.TemporaryDirectory()
 
         vorbis_filepath = os.path.join(cls.ref_temp_dir.name, "f.ogg")
@@ -141,12 +141,12 @@ class TestR128Gain(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        """ Clean up test suite stuff. """
+        """Clean up test suite stuff."""
         cls.ref_temp_dir.cleanup()
         cls.ref_temp_dir2.cleanup()
 
     def setUp(self):
-        """ Set up test case stuff. """
+        """Set up test case stuff."""
         self.maxDiff = None
 
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -191,40 +191,40 @@ class TestR128Gain(unittest.TestCase):
         self.max_peak_filepath = self.vorbis_filepath
 
     def tearDown(self):
-        """ Clean up test case stuff. """
+        """Clean up test case stuff."""
         self.temp_dir.cleanup()
         self.temp_dir2.cleanup()
 
     def assertValidGainStr(self, s, places):
-        """ Check string is a valid gain. """
+        """Check string is a valid gain."""
         self.assertIsNotNone(re.match(r"^-?\d{1,2}\.\d{" + str(places) + "} dB$", s))
 
     def assertGainStrAlmostEqual(self, s, ref):
-        """ Check gain string is close to value. """
+        """Check gain string is close to value."""
         val = float(s.split(" ", 1)[0])
         self.assertAlmostEqual(val, ref, delta=0.1)
 
     def test_float_to_q7dot8(self):
-        """ Test float_to_q7dot8. """
+        """Test float_to_q7dot8."""
         self.assertEqual(r128gain.float_to_q7dot8(-12.34), -3159)
         self.assertEqual(r128gain.float_to_q7dot8(0.0), 0)
         self.assertEqual(r128gain.float_to_q7dot8(12.34), 3159)
 
     def test_gain_to_scale(self):
-        """ Test gain_to_scale. """
+        """Test gain_to_scale."""
         self.assertAlmostEqual(r128gain.gain_to_scale(-12.34), 0.241546, places=6)
         self.assertAlmostEqual(r128gain.gain_to_scale(0.0), 1.0, places=6)
         self.assertAlmostEqual(r128gain.gain_to_scale(12.34), 4.139997, places=6)
 
     def test_scale_to_gain(self):
-        """ Test scale_to_gain. """
+        """Test scale_to_gain."""
         self.assertEqual(r128gain.scale_to_gain(0.0), -math.inf)
         self.assertAlmostEqual(r128gain.scale_to_gain(0.123456), -18.169756, places=6)
         self.assertAlmostEqual(r128gain.scale_to_gain(1.0), 0.0)
         self.assertAlmostEqual(r128gain.scale_to_gain(1.234567), 1.830293, places=6)
 
     def test_scan(self):
-        """ Test scan. """
+        """Test scan."""
         for album_gain in (False, True):
             # bunch of different files
             filepaths = (
@@ -271,7 +271,7 @@ class TestR128Gain(unittest.TestCase):
                     self.assertEqual(r128gain.scan(shuffled_filepaths, album_gain=True), ref_levels)
 
     def test_tag(self):
-        """ Test tag. """
+        """Test tag."""
         loudness = random.randint(-300, -1) / 10
         peak = random.randint(1, 1000) / 1000
         ref_loudness_rg2 = -18
@@ -381,7 +381,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(r128gain.has_loudness_tag(self.invalid_mp3_filepath), None)
 
     def test_process(self):  # noqa: C901
-        """ Test process. """
+        """Test process."""
         ref_loudness_rg2 = -18
         ref_loudness_opus = -23
 
@@ -568,7 +568,7 @@ class TestR128Gain(unittest.TestCase):
                         self.assertNotIn("REPLAYGAIN_ALBUM_PEAK", mf)
 
     def test_process_recursive(self):  # noqa: C901
-        """ Test process_recursive. """
+        """Test process_recursive."""
         ref_loudness_rg2 = -18
         ref_loudness_opus = -23
 
@@ -875,7 +875,7 @@ class TestR128Gain(unittest.TestCase):
                         self.assertNotIn("----:com.apple.iTunes:replaygain_album_peak", mf)
 
     def test_oggopus_output_gain(self):
-        """ Test opusgain.parse_oggopus_output_gain. """
+        """Test opusgain.parse_oggopus_output_gain."""
         # non opus formats should not be parsed successfully
         for filepath in (
             self.vorbis_filepath,
@@ -898,7 +898,7 @@ class TestR128Gain(unittest.TestCase):
             self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), new_gain)
 
     def test_tag_oggopus_output_gain(self):
-        """ Test tag with opusgain. """
+        """Test tag with opusgain."""
         ref_loudness_opus = -23
         ref_track_loudness = self.ref_levels[self.opus_filepath][0]
         track_to_album_gain_delta = 1.5

@@ -122,7 +122,7 @@ def write_oggopus_output_gain(file, new_output_gain):
 
 
 def _compute_ogg_page_crc(page):
-    """ Compute CRC of an Ogg page. """
+    """Compute CRC of an Ogg page."""
     page_zero_crc = (
         page[:OGG_FIRST_PAGE_HEADER_CRC_OFFSET]
         + b"\00" * OGG_FIRST_PAGE_HEADER_CRC.size
