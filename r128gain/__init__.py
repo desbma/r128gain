@@ -505,7 +505,7 @@ def has_loudness_tag(filepath: str) -> Optional[Tuple[bool, bool]]:
         )
 
     else:
-        logger().warning(f"Unhandled '{mf.__class__.__name__}' tag format for file {filepath!r}")
+        logger().warning(f"Unhandled {mf.__class__.__name__!r} tag format for file {filepath!r}")
         return None
 
     return track, album
@@ -774,7 +774,7 @@ def process_recursive(  # noqa: C901
                                 mtime_second_offset=mtime_second_offset,
                             )
                         except Exception as e:
-                            logger().error(f"Failed to tag file '{audio_filepath}': {e.__class__.__qualname__} {e}")
+                            logger().error(f"Failed to tag file {audio_filepath!r}: {e.__class__.__qualname__} {e}")
                             error_count += 1
 
                 retained_futures -= set(other_dir_futures)
