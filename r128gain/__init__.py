@@ -252,7 +252,7 @@ def scan(
             has_tags = has_loudness_tag(audio_filepath)
             assert has_tags is not None
             if skip_tagged and has_tags[0]:
-                logger().info("File %r already has a track gain tag, skipping track gain scan" % (audio_filepath))
+                logger().info(f"File {audio_filepath!r} already has a track gain tag, skipping track gain scan")
                 # create dummy future
                 future = executor.submit(lambda: None)  # type: ignore
             else:
@@ -292,9 +292,7 @@ def scan(
                             )
                         )
                     else:
-                        logger().warning(
-                            "Failed to analyze file %r: %s %s" % (audio_filepath, e.__class__.__qualname__, e)
-                        )
+                        logger().warning(f"Failed to analyze file {audio_filepath!r}: {e.__class__.__qualname__} {e}")
                     if boxed_error_count is not None:
                         boxed_error_count[0] += 1
                 else:
@@ -346,7 +344,7 @@ def tag(  # noqa: C901
         if album_peak is not None:
             assert 0 <= album_peak <= 1.0
 
-    logger().info("Tagging file %r" % (filepath))
+    logger().info(f"Tagging file {filepath!r}")
     original_mtime = os.path.getmtime(filepath)
     mf = mutagen.File(filepath)
     if (mf is not None) and (mf.tags is None) and isinstance(mf, mutagen.trueaudio.TrueAudio):
@@ -369,13 +367,11 @@ def tag(  # noqa: C901
                 mutagen.id3.TXXX(
                     encoding=mutagen.id3.Encoding.LATIN1,
                     desc="REPLAYGAIN_TRACK_GAIN",
-                    text="%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness),
+                    text=f"{RG2_REF_R128_LOUDNESS_DBFS - loudness:.2f} dB",
                 )
             )
             mf.tags.add(
-                mutagen.id3.TXXX(
-                    encoding=mutagen.id3.Encoding.LATIN1, desc="REPLAYGAIN_TRACK_PEAK", text="%.6f" % (peak)
-                )
+                mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1, desc="REPLAYGAIN_TRACK_PEAK", text=f"{peak:.6f}")
             )
         if album_loudness is not None:
             assert album_peak is not None
@@ -383,12 +379,12 @@ def tag(  # noqa: C901
                 mutagen.id3.TXXX(
                     encoding=mutagen.id3.Encoding.LATIN1,
                     desc="REPLAYGAIN_ALBUM_GAIN",
-                    text="%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness),
+                    text=f"{RG2_REF_R128_LOUDNESS_DBFS - album_loudness:.2f} dB",
                 )
             )
             mf.tags.add(
                 mutagen.id3.TXXX(
-                    encoding=mutagen.id3.Encoding.LATIN1, desc="REPLAYGAIN_ALBUM_PEAK", text="%.6f" % (album_peak)
+                    encoding=mutagen.id3.Encoding.LATIN1, desc="REPLAYGAIN_ALBUM_PEAK", text=f"{album_peak:.6f}"
                 )
             )
         # other legacy formats:
@@ -435,43 +431,39 @@ def tag(  # noqa: C901
         # https://wiki.xiph.org/VorbisComment#Replay_Gain
         if loudness is not None:
             assert peak is not None
-            mf["REPLAYGAIN_TRACK_GAIN"] = "%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)
-            mf["REPLAYGAIN_TRACK_PEAK"] = "%.8f" % (peak)
+            mf["REPLAYGAIN_TRACK_GAIN"] = f"{RG2_REF_R128_LOUDNESS_DBFS - loudness:.2f} dB"
+            mf["REPLAYGAIN_TRACK_PEAK"] = f"{peak:.8f}"
         if album_loudness is not None:
             assert album_peak is not None
-            mf["REPLAYGAIN_ALBUM_GAIN"] = "%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)
-            mf["REPLAYGAIN_ALBUM_PEAK"] = "%.8f" % (album_peak)
+            mf["REPLAYGAIN_ALBUM_GAIN"] = f"{RG2_REF_R128_LOUDNESS_DBFS - album_loudness:.2f} dB"
+            mf["REPLAYGAIN_ALBUM_PEAK"] = f"{album_peak:.8f}"
 
     elif isinstance(mf.tags, mutagen.mp4.MP4Tags) or isinstance(mf, mutagen.mp4.MP4):
         # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
         if loudness is not None:
             assert peak is not None
             mf["----:com.apple.iTunes:replaygain_track_gain"] = mutagen.mp4.MP4FreeForm(
-                ("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - loudness)).encode()
+                f"{RG2_REF_R128_LOUDNESS_DBFS - loudness:.2f} dB".encode()
             )
-            mf["----:com.apple.iTunes:replaygain_track_peak"] = mutagen.mp4.MP4FreeForm(("%.6f" % (peak)).encode())
+            mf["----:com.apple.iTunes:replaygain_track_peak"] = mutagen.mp4.MP4FreeForm(f"{peak:.6f}".encode())
         if album_loudness is not None:
             assert album_peak is not None
             mf["----:com.apple.iTunes:replaygain_album_gain"] = mutagen.mp4.MP4FreeForm(
-                ("%.2f dB" % (RG2_REF_R128_LOUDNESS_DBFS - album_loudness)).encode()
+                f"{RG2_REF_R128_LOUDNESS_DBFS - album_loudness:.2f} dB".encode()
             )
-            mf["----:com.apple.iTunes:replaygain_album_peak"] = mutagen.mp4.MP4FreeForm(
-                ("%.6f" % (album_peak)).encode()
-            )
+            mf["----:com.apple.iTunes:replaygain_album_peak"] = mutagen.mp4.MP4FreeForm(f"{album_peak:.6f}".encode())
 
     else:
-        raise RuntimeError("Unhandled '%s' tag format for file '%s'" % (mf.__class__.__name__, filepath))
+        raise RuntimeError(f"Unhandled {mf.__class__.__name__!r} tag format for file {filepath!r}")
 
     mf.save()
 
     # preserve original modification time, possibly increasing it by some seconds
     if mtime_second_offset is not None:
         if mtime_second_offset == 0:
-            logger().debug("Restoring modification time for file %r" % (filepath))
+            logger().debug(f"Restoring modification time for file {filepath!r}")
         else:
-            logger().debug(
-                "Restoring modification time for file '{}' (adding {} seconds)".format(filepath, mtime_second_offset)
-            )
+            logger().debug(f"Restoring modification time for file {filepath!r} (adding {mtime_second_offset} seconds)")
         os.utime(filepath, times=(os.stat(filepath).st_atime, original_mtime + mtime_second_offset))
 
 
@@ -485,7 +477,7 @@ def has_loudness_tag(filepath: str) -> Optional[Tuple[bool, bool]]:
     try:
         mf = mutagen.File(filepath)
     except mutagen.MutagenError as e:
-        logger().warning("File %r %s: %s" % (filepath, e.__class__.__qualname__, e))
+        logger().warning(f"File {filepath!r} {e.__class__.__qualname__}: {e}")
         return None
     if mf is None:
         return None
@@ -513,7 +505,7 @@ def has_loudness_tag(filepath: str) -> Optional[Tuple[bool, bool]]:
         )
 
     else:
-        logger().warning("Unhandled '%s' tag format for file %r" % (mf.__class__.__name__, filepath))
+        logger().warning(f"Unhandled '{mf.__class__.__name__}' tag format for file {filepath!r}")
         return None
 
     return track, album
@@ -532,12 +524,12 @@ def show_scan_report(
         except KeyError:
             loudness_str, peak_str = "SKIPPED", "SKIPPED"
         else:
-            loudness_str = "%.1f LUFS" % (loudness)
+            loudness_str = f"{loudness:.1f} LUFS"
             if peak is None:
                 peak_str = "-"
             else:
-                peak_str = "%.1f dBFS" % (scale_to_gain(peak))
-        logger().info("File %r: loudness = %s, sample peak = %s" % (audio_filepath, loudness_str, peak_str))
+                peak_str = f"{scale_to_gain(peak):.1f} dBFS"
+        logger().info(f"File {audio_filepath!r}: loudness = {loudness_str}, sample peak = {peak_str}")
 
     # album loudness/peak
     if album_dir:
@@ -546,12 +538,12 @@ def show_scan_report(
         except KeyError:
             album_loudness_str, album_peak_str = "SKIPPED", "SKIPPED"
         else:
-            album_loudness_str = "%.1f LUFS" % (album_loudness)
+            album_loudness_str = f"{album_loudness:.1f} LUFS"
             if album_peak is None:
                 album_peak_str = "-"
             else:
-                album_peak_str = "%.1f dBFS" % (scale_to_gain(album_peak))
-        logger().info("Album %r: loudness = %s, sample peak = %s" % (album_dir, album_loudness_str, album_peak_str))
+                album_peak_str = f"{scale_to_gain(album_peak):.1f} dBFS"
+        logger().info(f"Album {album_dir!r}: loudness = {album_loudness_str}, sample peak = {album_peak_str}")
 
 
 def process(
@@ -622,7 +614,7 @@ def process(
                 mtime_second_offset=mtime_second_offset,
             )
         except Exception as e:
-            logger().error("Failed to tag file %r: %s %s" % (audio_filepath, e.__class__.__qualname__, e))
+            logger().error(f"Failed to tag file {audio_filepath!r}: {e.__class__.__qualname__} {e}")
             error_count += 1
 
     return error_count
@@ -645,7 +637,7 @@ def process_recursive(  # noqa: C901
 
     # walk directories
     albums_filepaths = []
-    walk_stats = collections.OrderedDict(((k, 0) for k in ("files", "dirs")))
+    walk_stats = collections.OrderedDict((k, 0) for k in ("files", "dirs"))
     with dynamic_tqdm(desc="Analyzing directories", unit=" dir", postfix=walk_stats, leave=False) as progress:
         for input_directory in directories:
             for root_dir, subdirs, filepaths in os.walk(input_directory, followlinks=False):
@@ -739,7 +731,7 @@ def process_recursive(  # noqa: C901
                                 )
                             )
                         else:
-                            logger().warning("Failed to analyze file %r: %s %s" % (key, e.__class__.__qualname__, e))
+                            logger().warning(f"Failed to analyze file {key!r}: {e.__class__.__qualname__} {e}")
                         error_count += 1
                     else:
                         if result is not None:
@@ -782,9 +774,7 @@ def process_recursive(  # noqa: C901
                                 mtime_second_offset=mtime_second_offset,
                             )
                         except Exception as e:
-                            logger().error(
-                                "Failed to tag file '%s': %s %s" % (audio_filepath, e.__class__.__qualname__, e)
-                            )
+                            logger().error(f"Failed to tag file '{audio_filepath}': {e.__class__.__qualname__} {e}")
                             error_count += 1
 
                 retained_futures -= set(other_dir_futures)
@@ -800,7 +790,7 @@ def cl_main() -> None:
     """Command line entry point."""
     # parse args
     arg_parser = argparse.ArgumentParser(
-        description="r128gain v%s.%s" % (__version__, __doc__), formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description=f"r128gain v{__version__}.{__doc__}", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     arg_parser.add_argument("path", nargs="+", help="Audio file paths, or directory paths for recursive mode")
     arg_parser.add_argument("-a", "--album-gain", action="store_true", default=False, help="Enable album gain")

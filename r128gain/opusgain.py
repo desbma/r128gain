@@ -48,7 +48,7 @@ def parse_oggopus_output_gain(file: BinaryIO) -> int:
         page_segments,
     ) = OGG_FIRST_PAGE_HEADER.unpack(chunk)
     if capture_pattern != b"OggS":
-        raise ValueError("Invalid OGG capture pattern: %s, expected '%s'" % (repr(capture_pattern), "OggS"))
+        raise ValueError(f"Invalid OGG capture pattern: {repr(capture_pattern)}, expected 'OggS'")
     if version != 0:
         raise ValueError("Invalid OGG version: %u, expected %u" % (version, 0))
     if header_type != 2:  # should be first page of stream
@@ -74,7 +74,7 @@ def parse_oggopus_output_gain(file: BinaryIO) -> int:
         )
     computed_crc = _compute_ogg_page_crc(first_ogg_page)
     if computed_crc != crc_checksum:
-        raise ValueError("Invalid OGG page CRC: 0x%08x, expected 0x%08x" % (crc_checksum, computed_crc))
+        raise ValueError(f"Invalid OGG page CRC: 0x{crc_checksum:08x}, expected 0x{computed_crc:08x}")
 
     #
     # Opus header
@@ -89,9 +89,9 @@ def parse_oggopus_output_gain(file: BinaryIO) -> int:
         chunk[: OGG_OPUS_ID_HEADER.size]
     )
     if magic != b"OpusHead":
-        raise ValueError("Invalid Opus magic number: %s, expected '%s'" % (repr(magic), "OpusHead"))
+        raise ValueError(f"Invalid Opus magic number: {repr(magic)}, expected 'OpusHead'")
     if (version >> 4) != 0:
-        raise ValueError("Invalid Opus version: 0x%x, expected 0x0-0xf" % (version))
+        raise ValueError(f"Invalid Opus version: 0x{version:x}, expected 0x0-0xf")
 
     # seek to Opus header
     file.seek(OGG_FIRST_PAGE_HEADER.size + segment_table_fmt.size)
