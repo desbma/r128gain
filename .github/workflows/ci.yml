@@ -64,3 +64,4 @@ jobs:
           FFMPEG_CACHE_DIR: /home/runner/.cache/ci/r128gain/ffmpeg-${{matrix.win-version}}
           FFMPEG_VERSION: 3.4
           WINEARCH: ${{matrix.win-version}}
+        continue-on-error: true
