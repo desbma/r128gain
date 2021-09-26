@@ -810,8 +810,8 @@ def cl_main() -> None:
         action="store_true",
         default=False,
         help="""Enable recursive mode: process audio files in directories and subdirectories.
-                                  If album gain is enabled, all files in a directory are considered as part of the same
-                                  album.""",
+                If album gain is enabled, all files in a directory are considered as part of the same
+                album.""",
     )
     arg_parser.add_argument(
         "-s",
@@ -819,9 +819,9 @@ def cl_main() -> None:
         action="store_true",
         default=False,
         help="""Do not scan & tag files already having loudness tags.
-                                  Warning: only enable if you are sure of the validity of the existing tags, as it can
-                                  cause volume differences if existing tags are incorrect or coming from a old RGv1
-                                  tagger.""",
+                Warning: only enable if you are sure of the validity of the existing tags, as it can
+                cause volume differences if existing tags are incorrect or coming from a old RGv1
+                tagger.""",
     )
     arg_parser.add_argument(
         "-o",
@@ -829,10 +829,10 @@ def cl_main() -> None:
         action="store_true",
         default=False,
         help="""For Opus files, write album or track gain in the 'output gain' Opus header (see
-                                  https://tools.ietf.org/html/rfc7845#page-15). This gain is mandatory to apply for all
-                                  Opus decoders so this should improve compatibility with players not supporting the
-                                  R128 tags.
-                                  Warning: This is EXPERIMENTAL, only use if you fully understand the implications.""",
+                https://tools.ietf.org/html/rfc7845#page-15). This gain is mandatory to apply for all
+                Opus decoders so this should improve compatibility with players not supporting the
+                R128 tags.
+                Warning: This is EXPERIMENTAL, only use if you fully understand the implications.""",
     )
     arg_parser.add_argument(
         "-p",
@@ -844,7 +844,7 @@ def cl_main() -> None:
         type=int,
         default=None,
         help="""Preserve modification times of tagged files,
-                                  optionally adding MTIME_SECOND_OFFSET seconds. """,
+                optionally adding MTIME_SECOND_OFFSET seconds. """,
     )
     arg_parser.add_argument(
         "-c",
@@ -858,7 +858,7 @@ def cl_main() -> None:
         "--ffmpeg-path",
         default=shutil.which("ffmpeg"),
         help="""Full file path of ffmpeg executable (only needed if not in PATH).
-                                  If not specified, autodetect""",
+                If not specified, autodetect""",
     )
     arg_parser.add_argument(
         "-d", "--dry-run", action="store_true", default=False, help="Do not write any tags, only show scan results"
