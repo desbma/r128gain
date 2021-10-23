@@ -13,6 +13,7 @@ import contextlib
 import functools
 import logging
 import math
+import mimetypes
 import operator
 import os
 import re
@@ -38,7 +39,11 @@ except AttributeError:
     cmd_to_string = subprocess.list2cmdline
 
 
-AUDIO_EXTENSIONS = frozenset(("flac", "ogg", "opus", "m4a", "mp3", "mpc", "tta", "wv"))
+AUDIO_EXTENSIONS = frozenset(
+    ("aac", "ape", "flac", "m4a", "mp3", "mp4", "mpc", "ogg", "oga", "opus", "tta", "wv")
+) | frozenset(
+    ext for ext, mime in {**mimetypes.types_map, **mimetypes.common_types}.items() if mime.startswith("audio/")
+)
 RG2_REF_R128_LOUDNESS_DBFS = -18
 OPUS_REF_R128_LOUDNESS_DBFS = -23
 ALBUM_GAIN_KEY = 0
@@ -248,8 +253,7 @@ def scan(
                 )
                 futures[future] = ALBUM_GAIN_KEY
         audio_filepath: Union[str, int]
-        for audio_filepath in audio_filepaths:
-            has_tags = has_loudness_tag(audio_filepath)
+        for audio_filepath, has_tags in zip(audio_filepaths, loudness_tags):
             assert has_tags is not None
             if skip_tagged and has_tags[0]:
                 logger().info(f"File {audio_filepath!r} already has a track gain tag, skipping track gain scan")
@@ -347,8 +351,8 @@ def tag(  # noqa: C901
     logger().info(f"Tagging file {filepath!r}")
     original_mtime = os.path.getmtime(filepath)
     mf = mutagen.File(filepath)
-    if (mf is not None) and (mf.tags is None) and isinstance(mf, mutagen.trueaudio.TrueAudio):
-        # TTA can have ID3 or APE tags, try to use APE if we already have some APE tags and no ID3
+    if (mf is not None) and (mf.tags is None) and isinstance(mf, (mutagen.trueaudio.TrueAudio, mutagen.aac.AAC)):
+        # some formats can have ID3 or APE tags, try to use APE if we already have some APE tags and no ID3
         try:
             mf_ape = mutagen.apev2.APEv2File(filepath)
         except Exception:
@@ -357,9 +361,11 @@ def tag(  # noqa: C901
             if mf_ape.tags is not None:
                 mf = mf_ape
     if (mf is not None) and (mf.tags is None):
+        if isinstance(mf, (mutagen.trueaudio.TrueAudio, mutagen.aac.AAC)):
+            mf = mutagen.apev2.APEv2File(filepath)
         mf.add_tags()
 
-    if isinstance(mf.tags, mutagen.id3.ID3) or isinstance(mf, mutagen.id3.ID3FileType):
+    if isinstance(mf.tags, mutagen.id3.ID3):
         # http://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification#ID3v2
         if loudness is not None:
             assert peak is not None
@@ -425,9 +431,7 @@ def tag(  # noqa: C901
             assert -32768 <= q78 <= 32767
             mf["R128_ALBUM_GAIN"] = str(q78)
 
-    elif isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)) or isinstance(
-        mf, (mutagen.ogg.OggFileType, mutagen.apev2.APEv2File)
-    ):
+    elif isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)):
         # https://wiki.xiph.org/VorbisComment#Replay_Gain
         if loudness is not None:
             assert peak is not None
@@ -438,7 +442,7 @@ def tag(  # noqa: C901
             mf["REPLAYGAIN_ALBUM_GAIN"] = f"{RG2_REF_R128_LOUDNESS_DBFS - album_loudness:.2f} dB"
             mf["REPLAYGAIN_ALBUM_PEAK"] = f"{album_peak:.8f}"
 
-    elif isinstance(mf.tags, mutagen.mp4.MP4Tags) or isinstance(mf, mutagen.mp4.MP4):
+    elif isinstance(mf.tags, mutagen.mp4.MP4Tags):
         # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
         if loudness is not None:
             assert peak is not None
@@ -454,7 +458,7 @@ def tag(  # noqa: C901
             mf["----:com.apple.iTunes:replaygain_album_peak"] = mutagen.mp4.MP4FreeForm(f"{album_peak:.6f}".encode())
 
     else:
-        raise RuntimeError(f"Unhandled {mf.__class__.__name__!r} tag format for file {filepath!r}")
+        raise RuntimeError(f"Unhandled {mf.__class__.__qualname__!r} tag format for file {filepath!r}")
 
     mf.save()
 
@@ -482,7 +486,7 @@ def has_loudness_tag(filepath: str) -> Optional[Tuple[bool, bool]]:
     if mf is None:
         return None
 
-    if isinstance(mf.tags, mutagen.id3.ID3) or isinstance(mf, mutagen.id3.ID3FileType):
+    if isinstance(mf.tags, mutagen.id3.ID3):
         track = ("TXXX:REPLAYGAIN_TRACK_GAIN" in mf) and ("TXXX:REPLAYGAIN_TRACK_PEAK" in mf)
         album = ("TXXX:REPLAYGAIN_ALBUM_GAIN" in mf) and ("TXXX:REPLAYGAIN_ALBUM_PEAK" in mf)
 
@@ -490,13 +494,11 @@ def has_loudness_tag(filepath: str) -> Optional[Tuple[bool, bool]]:
         track = "R128_TRACK_GAIN" in mf
         album = "R128_ALBUM_GAIN" in mf
 
-    elif isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)) or isinstance(
-        mf, (mutagen.ogg.OggFileType, mutagen.apev2.APEv2File)
-    ):
+    elif isinstance(mf.tags, (mutagen._vorbis.VComment, mutagen.apev2.APEv2)):
         track = ("REPLAYGAIN_TRACK_GAIN" in mf) and ("REPLAYGAIN_TRACK_PEAK" in mf)
         album = ("REPLAYGAIN_ALBUM_GAIN" in mf) and ("REPLAYGAIN_ALBUM_PEAK" in mf)
 
-    elif isinstance(mf.tags, mutagen.mp4.MP4Tags) or isinstance(mf, mutagen.mp4.MP4):
+    elif isinstance(mf.tags, mutagen.mp4.MP4Tags):
         track = ("----:com.apple.iTunes:replaygain_track_gain" in mf) and (
             "----:com.apple.iTunes:replaygain_track_peak" in mf
         )
@@ -505,8 +507,7 @@ def has_loudness_tag(filepath: str) -> Optional[Tuple[bool, bool]]:
         )
 
     else:
-        logger().warning(f"Unhandled {mf.__class__.__name__!r} tag format for file {filepath!r}")
-        return None
+        logger().warning(f"Unhandled or missing {mf.__class__.__qualname__!r} tag format for file {filepath!r}")
 
     return track, album
 
