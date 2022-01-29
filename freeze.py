@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """ Package freezing for Windows. """
 
 import os
@@ -12,7 +10,7 @@ with open(os.path.join("r128gain", "__init__.py"), "rt") as f:
 assert version_match is not None
 version = version_match.group(1)
 
-build_exe_options = {"optimize": 0, "excludes": ["tkinter"]}
+build_exe_options = {"includes": [], "packages": [], "optimize": 0, "excludes": []}
 
 setup(
     name="r128gain",
