@@ -49,10 +49,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - run: sudo apt-get install p7zip-full mingw-w64
+      - run: sudo apt-get install p7zip-full mingw-w64 ffmpeg yasm
       - if: ${{matrix.win-version ==  'win32'}}
         run: |
           sudo dpkg --add-architecture i386
+          # https://github.com/actions/virtual-environments/issues/3339#issuecomment-834355074
+          sudo apt-add-repository "ppa:ondrej/php" -y
           sudo apt-get update
           sudo apt-get install wine32
       - if: ${{matrix.win-version ==  'win64'}}
