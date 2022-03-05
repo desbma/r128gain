@@ -917,7 +917,8 @@ def cl_main() -> None:
         )
 
     if err_count > 0:
-        exit(1)
+        # freeze target can not use exit directly
+        sys.exit(1)
 
 
 if getattr(sys, "frozen", False):
