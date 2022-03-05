@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
         ffmpeg-version: ["2.8", "3.2", "3.4", "4.1", "4.2", "4.3", "4.4", "5.0", "master"]
 
     steps:
@@ -64,6 +64,6 @@ jobs:
           DOWNLOAD_DIR: /home/runner/.cache/ci/r128gain/build
           TEST_DL_CACHE_DIR: /home/runner/.cache/ci/r128gain/test
           FFMPEG_CACHE_DIR: /home/runner/.cache/ci/r128gain/ffmpeg-${{matrix.win-version}}
-          FFMPEG_VERSION: 3.4
+          FFMPEG_VERSION: "3.4"
           WINEARCH: ${{matrix.win-version}}
         continue-on-error: true
