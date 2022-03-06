@@ -21,6 +21,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -164,10 +165,19 @@ def get_r128_loudness(
         cmd=ffmpeg_path or "ffmpeg",
     )
 
-    # run
-    logger().debug(cmd_to_string(cmd))
-    output = subprocess.run(cmd, check=True, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE).stderr
-    output_lines = output.decode("utf-8", errors="replace").splitlines()
+    # workaround https://github.com/kkroening/ffmpeg-python/issues/161
+    opt_index = cmd.index("-filter_complex")
+    with tempfile.TemporaryDirectory(prefix="r128gain_") as tmp_dir:
+        tmp_script_filepath = os.path.join(tmp_dir, "ffmpeg_filters")
+        with open(tmp_script_filepath, "wt") as f:
+            f.write(cmd[opt_index + 1])
+        cmd[opt_index] = "-filter_complex_script"
+        cmd[opt_index + 1] = tmp_script_filepath
+
+        # run
+        logger().debug(cmd_to_string(cmd))
+        output = subprocess.run(cmd, check=True, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE).stderr
+        output_lines = output.decode("utf-8", errors="replace").splitlines()
 
     if calc_peak:
         # parse replaygain filter output
