@@ -327,7 +327,7 @@ def scan(
 def float_to_q7dot8(f: float) -> int:
     """Encode float f to a fixed point Q7.8 integer."""
     # https://en.wikipedia.org/wiki/Q_(number_format)#Float_to_Q
-    return int(round(f * (2 ** 8), 0))
+    return int(round(f * (2**8), 0))
 
 
 def gain_to_scale(gain: float) -> float:

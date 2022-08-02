@@ -35,7 +35,7 @@ def download(url: str, filepath: str):
             shutil.copyfile(cache_filepath, filepath)
             return
     with requests.get(url, stream=True) as response, open(filepath, "wb") as file:
-        for chunk in response.iter_content(chunk_size=2 ** 14):
+        for chunk in response.iter_content(chunk_size=2**14):
             file.write(chunk)
     if cache_dir is not None:
         shutil.copyfile(filepath, cache_filepath)
@@ -327,7 +327,7 @@ class TestR128Gain(unittest.TestCase):
                 mf = mutagen.File(self.opus_filepath)
                 self.assertIsInstance(mf.tags, mutagen._vorbis.VComment)
                 self.assertIn("R128_TRACK_GAIN", mf)
-                self.assertEqual(mf["R128_TRACK_GAIN"], [str(int(round(expected_track_gain_opus * (2 ** 8), 0)))])
+                self.assertEqual(mf["R128_TRACK_GAIN"], [str(int(round(expected_track_gain_opus * (2**8), 0)))])
 
                 if delete_tags:
                     mf = mutagen.File(self.mp3_filepath)
@@ -983,7 +983,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertEqual(mf["R128_TRACK_GAIN"], ["0"])
         self.assertNotIn("R128_ALBUM_GAIN", mf)
 
-        expected_output_gain = round((ref_loudness_opus - ref_track_loudness) * (2 ** 8))
+        expected_output_gain = round((ref_loudness_opus - ref_track_loudness) * (2**8))
         with open(opus_filepath, "rb") as f:
             self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
 
@@ -999,7 +999,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("R128_ALBUM_GAIN", mf)
         self.assertEqual(mf["R128_ALBUM_GAIN"], ["0"])
 
-        expected_output_gain = round((ref_loudness_opus - ref_album_loudness) * (2 ** 8))
+        expected_output_gain = round((ref_loudness_opus - ref_album_loudness) * (2**8))
         with open(opus_filepath, "rb") as f:
             self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
 
@@ -1019,7 +1019,7 @@ class TestR128Gain(unittest.TestCase):
         self.assertIn("R128_ALBUM_GAIN", mf)
         self.assertEqual(mf["R128_ALBUM_GAIN"], ["0"])
 
-        expected_output_gain = round((ref_loudness_opus - ref_album_loudness) * (2 ** 8))
+        expected_output_gain = round((ref_loudness_opus - ref_album_loudness) * (2**8))
         with open(opus_filepath, "rb") as f:
             self.assertEqual(r128gain.opusgain.parse_oggopus_output_gain(f), expected_output_gain)
 
