@@ -166,13 +166,15 @@ def get_r128_loudness(
     )
 
     # workaround https://github.com/kkroening/ffmpeg-python/issues/161
-    opt_index = cmd.index("-filter_complex")
+    filter_opt_index = cmd.index("-filter_complex")
+    filter_script = cmd[filter_opt_index + 1]
+    logger().debug(f"Filter script: {filter_script}")
     with tempfile.TemporaryDirectory(prefix="r128gain_") as tmp_dir:
         tmp_script_filepath = os.path.join(tmp_dir, "ffmpeg_filters")
         with open(tmp_script_filepath, "wt") as f:
-            f.write(cmd[opt_index + 1])
-        cmd[opt_index] = "-filter_complex_script"
-        cmd[opt_index + 1] = tmp_script_filepath
+            f.write(filter_script)
+        cmd[filter_opt_index] = "-filter_complex_script"
+        cmd[filter_opt_index + 1] = tmp_script_filepath
 
         # run
         logger().debug(cmd_to_string(cmd))
