@@ -651,7 +651,7 @@ def process_recursive(  # noqa: C901
     # walk directories
     albums_filepaths = []
     walk_stats = collections.OrderedDict((k, 0) for k in ("files", "dirs"))
-    with dynamic_tqdm(desc="Analyzing directories", unit=" dir", postfix=walk_stats, leave=False) as progress:
+    with dynamic_tqdm(desc="Analyzing directories", unit=" dir", postfix=walk_stats, leave=True) as progress:
         for input_directory in directories:
             for root_dir, subdirs, filepaths in os.walk(input_directory, followlinks=False):
                 audio_filepaths = tuple(
@@ -698,7 +698,7 @@ def process_recursive(  # noqa: C901
         total=sum(map(len, albums_filepaths)) + int(album_gain) * len(albums_filepaths),
         desc="Analyzing audio loudness",
         unit=" files",
-        leave=False,
+        leave=True,
         smoothing=0,
     ) as progress:
         # get results
