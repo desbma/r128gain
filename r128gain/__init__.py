@@ -52,6 +52,7 @@ try:
     OPTIMAL_THREAD_COUNT = len(os.sched_getaffinity(0))
 except AttributeError:
     OPTIMAL_THREAD_COUNT = os.cpu_count()  # type: ignore
+RE_ANULLSINK_REPLACE_OUTPUT = (re.compile(r"]anullsink(\[s\d+\])"), "]anullsink")
 
 
 def logger() -> logging.Logger:
@@ -138,13 +139,13 @@ def get_r128_loudness(
             ffmpeg_rg_stream, ffmpeg_r128_stream = split_streams[0], split_streams[1]
             ffmpeg_rg_stream = ffmpeg_rg_stream.filter("aformat", sample_fmts="s16", channel_layouts="stereo")
             ffmpeg_rg_stream = ffmpeg_rg_stream.filter("replaygain")
+            ffmpeg_rg_stream = ffmpeg_rg_stream.filter("anullsink")
             output_streams.append(ffmpeg_rg_stream)
         else:
             ffmpeg_r128_stream = ffmpeg_input
         ffmpeg_r128_stream = ffmpeg_r128_stream.filter(
             "aformat", sample_fmts="s16", sample_rates="48000", channel_layouts="stereo"
         )
-        ffmpeg_r128_stream = ffmpeg_r128_stream.filter("afifo")  # needed for FFmpeg < 4.1
         ffmpeg_r128_streams.append(ffmpeg_r128_stream)
 
     if len(audio_filepaths) > 1:
@@ -152,6 +153,7 @@ def get_r128_loudness(
     else:
         ffmpeg_r128_merged = ffmpeg_r128_streams[0]
     ffmpeg_r128_merged = ffmpeg_r128_merged.filter("ebur128", framelog="verbose")
+    ffmpeg_r128_merged = ffmpeg_r128_merged.filter("anullsink")
     output_streams.append(ffmpeg_r128_merged)
 
     if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
@@ -165,9 +167,16 @@ def get_r128_loudness(
         cmd=ffmpeg_path or "ffmpeg",
     )
 
-    # workaround https://github.com/kkroening/ffmpeg-python/issues/161
+    # workaround https://github.com/kkroening/ffmpeg-python/issues/161 + python-ffmpeg incorrect handling of anullsink
+    while True:
+        try:
+            map_opt_idx = cmd.index("-map")
+        except ValueError:
+            break
+        cmd = cmd[:map_opt_idx] + cmd[map_opt_idx + 2 :]
     filter_opt_index = cmd.index("-filter_complex")
     filter_script = cmd[filter_opt_index + 1]
+    filter_script = RE_ANULLSINK_REPLACE_OUTPUT[0].sub(RE_ANULLSINK_REPLACE_OUTPUT[1], filter_script)
     logger().debug(f"Filter script: {filter_script}")
     with tempfile.TemporaryDirectory(prefix="r128gain_") as tmp_dir:
         tmp_script_filepath = os.path.join(tmp_dir, "ffmpeg_filters")
