@@ -134,18 +134,15 @@ def get_r128_loudness(
     output_streams = []
     ffmpeg_r128_streams = []
     for ffmpeg_input in ffmpeg_inputs:
+        ffmpeg_input = ffmpeg_input.filter("aformat", sample_fmts="s16", sample_rates="48000", channel_layouts="stereo")
         if calc_peak:
             split_streams = ffmpeg_input.filter_multi_output("asplit", outputs=2)
             ffmpeg_rg_stream, ffmpeg_r128_stream = split_streams[0], split_streams[1]
-            ffmpeg_rg_stream = ffmpeg_rg_stream.filter("aformat", sample_fmts="s16", channel_layouts="stereo")
             ffmpeg_rg_stream = ffmpeg_rg_stream.filter("replaygain")
             ffmpeg_rg_stream = ffmpeg_rg_stream.filter("anullsink")
             output_streams.append(ffmpeg_rg_stream)
         else:
             ffmpeg_r128_stream = ffmpeg_input
-        ffmpeg_r128_stream = ffmpeg_r128_stream.filter(
-            "aformat", sample_fmts="s16", sample_rates="48000", channel_layouts="stereo"
-        )
         ffmpeg_r128_streams.append(ffmpeg_r128_stream)
 
     if len(audio_filepaths) > 1:

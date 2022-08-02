@@ -177,17 +177,17 @@ class TestR128Gain(unittest.TestCase):
             self.vorbis_filepath: (-7.7, 1.0),
             self.opus_filepath: (-14.7, None),
             self.mp3_filepath: (-13.9, 0.94281),
-            self.m4a_filepath: (-20.6, 0.711426),
+            self.m4a_filepath: (-20.6, 0.710449),
             self.aac_filepath: (-9.0, 1.0),
-            self.flac_filepath: (-26.7, 0.232147),
-            self.wv_filepath: (-3.3, 0.705017),
+            self.flac_filepath: (-26.7, 0.232025),
+            self.wv_filepath: (-3.3, 0.709442),
             0: (-10.6, 1.0),
         }
         self.ref_levels_2 = self.ref_levels.copy()
         self.ref_levels_2.update(
             {
                 self.flac_filepath_2: (-6.2, 1.0),
-                self.silence_wv_filepath: (-70.0, 0.000031),
+                self.silence_wv_filepath: (-70.0, 0.000061),
                 self.silence_mp3_filepath: (-70.0, 0.0),
                 0: (-10.3, 1.0),
             }
