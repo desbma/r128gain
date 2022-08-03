@@ -150,7 +150,6 @@ def get_r128_loudness(
     else:
         ffmpeg_r128_merged = ffmpeg_r128_streams[0]
     ffmpeg_r128_merged = ffmpeg_r128_merged.filter("ebur128", framelog="verbose")
-    ffmpeg_r128_merged = ffmpeg_r128_merged.filter("anullsink")
     output_streams.append(ffmpeg_r128_merged)
 
     if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
@@ -165,14 +164,22 @@ def get_r128_loudness(
     )
 
     # workaround https://github.com/kkroening/ffmpeg-python/issues/161 + python-ffmpeg incorrect handling of anullsink
-    while True:
-        try:
-            map_opt_idx = cmd.index("-map")
-        except ValueError:
-            break
-        cmd = cmd[:map_opt_idx] + cmd[map_opt_idx + 2 :]
     filter_opt_index = cmd.index("-filter_complex")
     filter_script = cmd[filter_opt_index + 1]
+    anullsink_pads = []
+    for match in RE_ANULLSINK_REPLACE_OUTPUT[0].finditer(filter_script):
+        pad = match.group(1)
+        anullsink_pads.append(pad)
+    map_opt_idx = -1
+    while True:
+        try:
+            map_opt_idx = cmd.index("-map", map_opt_idx + 1)
+        except ValueError:
+            break
+        if cmd[map_opt_idx + 1] in anullsink_pads:
+            cmd = cmd[:map_opt_idx] + cmd[map_opt_idx + 2 :]
+            map_opt_idx -= 1
+    filter_opt_index = cmd.index("-filter_complex")
     filter_script = RE_ANULLSINK_REPLACE_OUTPUT[0].sub(RE_ANULLSINK_REPLACE_OUTPUT[1], filter_script)
     logger().debug(f"Filter script: {filter_script}")
     with tempfile.TemporaryDirectory(prefix="r128gain_") as tmp_dir:
