@@ -200,13 +200,16 @@ def get_r128_loudness(
         sample_peak = None
 
     # parse r128 filter output
-    for i in reversed(range(len(output_lines))):
-        line = output_lines[i]
+    unrelated_line = True
+    for line in filter(str.strip, output_lines):
         if line.startswith("[Parsed_ebur128_") and line.endswith("Summary:"):
-            break
-    output_lines_r128 = filter(
-        lambda x: x and not x.startswith("[Parsed_replaygain_"), map(str.strip, output_lines[i:])
-    )
+            output_lines_r128 = [line.strip()]
+            unrelated_line = False
+        elif not unrelated_line:
+            if line.startswith(" "):
+                output_lines_r128.append(line.strip())
+            else:
+                unrelated_line = True
     r128_stats_raw: Dict[str, str] = dict(
         tuple(map(str.strip, line.split(":", 1)))  # type: ignore
         for line in output_lines_r128
