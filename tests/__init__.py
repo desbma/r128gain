@@ -96,6 +96,9 @@ class TestR128Gain(unittest.TestCase):
                     shutil.copyfileobj(in_file, out_file)
         os.remove(flac_zic_filepath)
 
+        flac_filepath = os.path.join(cls.ref_temp_dir2.name, "f.flac")
+        download("https://www.dropbox.com/s/xejktantsrm4mbi/1-03_stolen_focus_cut.flac?dl=1", flac_filepath)
+
         wv_filepath = os.path.join(cls.ref_temp_dir.name, "f.wv")
         cmd = (
             "sox",
@@ -169,6 +172,7 @@ class TestR128Gain(unittest.TestCase):
         self.aac_filepath = os.path.join(self.temp_dir.name, "f.aac")
         self.flac_filepath = os.path.join(self.temp_dir.name, "f.flac")
         self.flac_filepath_2 = os.path.join(self.temp_dir.name, "f2.flac")
+        self.flac_filepath_weird_sample_rate = os.path.join(self.temp_dir2.name, "f.flac")
         self.wv_filepath = os.path.join(self.temp_dir.name, "f.wv")
         self.silence_wv_filepath = os.path.join(self.temp_dir.name, "silence.wv")
         self.silence_mp3_filepath = os.path.join(self.temp_dir.name, "silence.mp3")
@@ -192,6 +196,9 @@ class TestR128Gain(unittest.TestCase):
                 0: (-10.3, 1.0),
             }
         )
+        self.ref_levels_alt = {
+            self.flac_filepath_weird_sample_rate: (-14.1, 0.848785),
+        }
 
         self.max_peak_filepath = self.vorbis_filepath
 
@@ -258,6 +265,15 @@ class TestR128Gain(unittest.TestCase):
             if album_gain:
                 ref_levels_opus[r128gain.ALBUM_GAIN_KEY] = self.ref_levels[self.opus_filepath]
             self.assertEqual(r128gain.scan(filepaths, album_gain=album_gain), ref_levels_opus)
+
+            # weird sample rate
+            filepaths = (self.flac_filepath_weird_sample_rate,)
+            ref_levels_flac = {
+                self.flac_filepath_weird_sample_rate: self.ref_levels_alt[self.flac_filepath_weird_sample_rate],
+            }
+            if album_gain:
+                ref_levels_flac[r128gain.ALBUM_GAIN_KEY] = self.ref_levels_alt[self.flac_filepath_weird_sample_rate]
+            self.assertEqual(r128gain.scan(filepaths, album_gain=album_gain), ref_levels_flac)
 
             if album_gain:
                 # file order should not change results
