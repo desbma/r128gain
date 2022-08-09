@@ -27,9 +27,10 @@ repos:
     rev: v0.971
     hooks:
       - id: mypy
+        additional_dependencies:
+          - types-requests
         args:
           - --ignore-missing-imports
-          - --install-types
 
   - repo: https://gitlab.com/pycqa/flake8
     rev: 3.9.2
