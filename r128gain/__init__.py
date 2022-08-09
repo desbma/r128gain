@@ -101,7 +101,41 @@ def get_ffmpeg_lib_versions(ffmpeg_path: Optional[str] = None) -> Dict[str, int]
     return r
 
 
-def get_r128_loudness(
+def run_ffmpeg(cmd: List[str]) -> bytes:
+    """Run FFmpeg command, and get stderr bytes."""
+    # workaround https://github.com/kkroening/ffmpeg-python/issues/161 + python-ffmpeg incorrect handling of anullsink
+    filter_opt_index = cmd.index("-filter_complex")
+    filter_script = cmd[filter_opt_index + 1]
+    anullsink_pads = []
+    for match in RE_ANULLSINK_REPLACE_OUTPUT[0].finditer(filter_script):
+        pad = match.group(1)
+        anullsink_pads.append(pad)
+    map_opt_idx = -1
+    while True:
+        try:
+            map_opt_idx = cmd.index("-map", map_opt_idx + 1)
+        except ValueError:
+            break
+        if cmd[map_opt_idx + 1] in anullsink_pads:
+            cmd = cmd[:map_opt_idx] + cmd[map_opt_idx + 2 :]
+            map_opt_idx -= 1
+    filter_opt_index = cmd.index("-filter_complex")
+    filter_script = RE_ANULLSINK_REPLACE_OUTPUT[0].sub(RE_ANULLSINK_REPLACE_OUTPUT[1], filter_script)
+    logger().debug(f"Filter script: {filter_script}")
+    with tempfile.TemporaryDirectory(prefix="r128gain_") as tmp_dir:
+        tmp_script_filepath = os.path.join(tmp_dir, "ffmpeg_filters")
+        with open(tmp_script_filepath, "wt") as f:
+            f.write(filter_script)
+        cmd[filter_opt_index] = "-filter_complex_script"
+        cmd[filter_opt_index + 1] = tmp_script_filepath
+
+        # run
+        logger().debug(cmd_to_string(cmd))
+        output = subprocess.run(cmd, check=True, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE).stderr
+    return output
+
+
+def get_r128_loudness(  # noqa: C901
     audio_filepaths: Sequence[str],
     *,
     calc_peak: bool = True,
@@ -163,36 +197,9 @@ def get_r128_loudness(
         cmd=ffmpeg_path or "ffmpeg",
     )
 
-    # workaround https://github.com/kkroening/ffmpeg-python/issues/161 + python-ffmpeg incorrect handling of anullsink
-    filter_opt_index = cmd.index("-filter_complex")
-    filter_script = cmd[filter_opt_index + 1]
-    anullsink_pads = []
-    for match in RE_ANULLSINK_REPLACE_OUTPUT[0].finditer(filter_script):
-        pad = match.group(1)
-        anullsink_pads.append(pad)
-    map_opt_idx = -1
-    while True:
-        try:
-            map_opt_idx = cmd.index("-map", map_opt_idx + 1)
-        except ValueError:
-            break
-        if cmd[map_opt_idx + 1] in anullsink_pads:
-            cmd = cmd[:map_opt_idx] + cmd[map_opt_idx + 2 :]
-            map_opt_idx -= 1
-    filter_opt_index = cmd.index("-filter_complex")
-    filter_script = RE_ANULLSINK_REPLACE_OUTPUT[0].sub(RE_ANULLSINK_REPLACE_OUTPUT[1], filter_script)
-    logger().debug(f"Filter script: {filter_script}")
-    with tempfile.TemporaryDirectory(prefix="r128gain_") as tmp_dir:
-        tmp_script_filepath = os.path.join(tmp_dir, "ffmpeg_filters")
-        with open(tmp_script_filepath, "wt") as f:
-            f.write(filter_script)
-        cmd[filter_opt_index] = "-filter_complex_script"
-        cmd[filter_opt_index + 1] = tmp_script_filepath
-
-        # run
-        logger().debug(cmd_to_string(cmd))
-        output = subprocess.run(cmd, check=True, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE).stderr
-        output_lines = output.decode("utf-8", errors="replace").splitlines()
+    # run
+    output = run_ffmpeg(cmd)
+    output_lines = output.decode("utf-8", errors="replace").splitlines()
 
     if calc_peak:
         # parse replaygain filter output
