@@ -676,6 +676,9 @@ def process_recursive(  # noqa: C901
     walk_stats = collections.OrderedDict((k, 0) for k in ("files", "dirs"))
     with dynamic_tqdm(desc="Analyzing directories", unit=" dir", postfix=walk_stats, leave=True) as progress:
         for input_directory in directories:
+            if not os.path.isdir(input_directory):
+                logging.getLogger().warning(f"{input_directory!r} is not a directory, ignoring")
+                continue
             for root_dir, subdirs, filepaths in os.walk(input_directory, followlinks=False):
                 audio_filepaths = tuple(
                     map(functools.partial(os.path.join, root_dir), filter(is_audio_filepath, filepaths))
