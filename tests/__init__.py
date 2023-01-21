@@ -24,6 +24,9 @@ import r128gain.opusgain
 
 IS_TRAVIS = os.getenv("CI") and os.getenv("TRAVIS")
 
+# WikiMedia rejects requests with the default User-Agent - fake a browser one
+DUMMY_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+
 
 def download(url: str, filepath: str):
     """Download URL to local file."""
@@ -34,7 +37,7 @@ def download(url: str, filepath: str):
         if os.path.isfile(cache_filepath):
             shutil.copyfile(cache_filepath, filepath)
             return
-    with requests.get(url, stream=True) as response, open(filepath, "wb") as file:
+    with requests.get(url, headers=DUMMY_HEADERS, stream=True) as response, open(filepath, "wb") as file:
         for chunk in response.iter_content(chunk_size=2**14):
             file.write(chunk)
     if cache_dir is not None:
