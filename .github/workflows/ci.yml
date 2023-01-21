@@ -30,7 +30,8 @@ jobs:
           path: ~/.cache/ci/r128gain
           key: ${{runner.os}}-ffmpeg-${{hashFiles('ci/build-minimal-ffmpeg')}}-${{matrix.ffmpeg-version}}
       - run: |
-          sudo apt-get install yasm sox
+          sudo apt-get update -q
+          sudo apt-get install -q yasm sox
           ./ci/build-minimal-ffmpeg ${{matrix.ffmpeg-version}}
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: |
@@ -57,10 +58,10 @@ jobs:
           sudo dpkg --add-architecture i386
           # https://github.com/actions/virtual-environments/issues/3339#issuecomment-834355074
           sudo apt-add-repository "ppa:ondrej/php" -y
-          sudo apt-get update
-          sudo apt-get install wine32
+          sudo apt-get update -q
+          sudo apt-get install -q wine32
       - if: ${{matrix.win-version ==  'win64'}}
-        run: sudo apt-get install wine64
+        run: sudo apt-get install -q wine64
       - run: make -C win all test
         env:
           DOWNLOAD_DIR: /home/runner/.cache/ci/r128gain/build
