@@ -9,7 +9,7 @@ jobs:
       - uses: pre-commit/action@v2.0.0
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
