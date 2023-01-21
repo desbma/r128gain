@@ -30,7 +30,7 @@ jobs:
           path: ~/.cache/ci/r128gain
           key: ${{runner.os}}-ffmpeg-${{hashFiles('ci/build-minimal-ffmpeg')}}-${{matrix.ffmpeg-version}}
       - run: |
-          sudo apt-get install yasm
+          sudo apt-get install yasm sox
           ./ci/build-minimal-ffmpeg ${{matrix.ffmpeg-version}}
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: |
