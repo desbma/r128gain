@@ -10,6 +10,16 @@ readonly INSTALL_DIR=${3:-$HOME/.local}
 readonly PROC_COUNT=$(grep -c '^processor' /proc/cpuinfo)
 
 
+parse_audio_decoders() {
+  # The lines between /* audio codecs */ and /* subtitles */ are audio
+  # codecs. Parse them out and filter out only decoders.
+
+  # shellcheck disable=SC2016
+  sed -n '/^\/\* audio codecs \*\/$/,${p;/^\/\* subtitles \*\/$/q}' \
+      libavcodec/allcodecs.c | \
+    sed -n 's/extern .*Codec ff_\(.*\)_decoder;/\1/p'
+}
+
 configure() {
   ./configure --prefix="${INSTALL_DIR}" \
               --enable-gpl \
@@ -24,8 +34,7 @@ configure() {
               --disable-encoders \
               --enable-encoder=pcm_s16le \
               --disable-decoders \
-              $(ffmpeg -hide_banner -codecs | grep '^ D.A' | cut -d ' ' -f 3 | xargs -I'{}' echo --enable-decoder={}) \
-              --enable-decoder=dnxhd \
+              $(parse_audio_decoders | xargs -I'{}' echo --enable-decoder={}) \
               --disable-hwaccels \
               --disable-muxers \
               --enable-muxer=null \
