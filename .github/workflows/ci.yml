@@ -45,28 +45,21 @@ jobs:
 
   test-win:
     runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
     strategy:
       fail-fast: false
       matrix:
-        win-version: ["win32", "win64"]
+        bits: [32, 64]
 
     steps:
       - uses: actions/checkout@v2
-      - run: sudo apt-get install p7zip-full mingw-w64 ffmpeg yasm
-      - if: ${{matrix.win-version ==  'win32'}}
-        run: |
-          sudo dpkg --add-architecture i386
-          # https://github.com/actions/virtual-environments/issues/3339#issuecomment-834355074
-          sudo apt-add-repository "ppa:ondrej/php" -y
-          sudo apt-get update -q
-          sudo apt-get install -q wine32
-      - if: ${{matrix.win-version ==  'win64'}}
-        run: sudo apt-get install -q wine64
+      # wine-core(x86-32) is needed in both cases because sox.exe is 32-bit
+      - run: sudo dnf --setopt=install_weak_deps=False install -y 'wine-core(x86-${{matrix.bits}})' 'wine-core(x86-32)' make git-core mingw${{matrix.bits}}-gcc yasm diffutils redhat-lsb-core p7zip-plugins
       - run: make -C win all test
         env:
           DOWNLOAD_DIR: /home/runner/.cache/ci/r128gain/build
           TEST_DL_CACHE_DIR: /home/runner/.cache/ci/r128gain/test
-          FFMPEG_CACHE_DIR: /home/runner/.cache/ci/r128gain/ffmpeg-${{matrix.win-version}}
-          FFMPEG_VERSION: "3.4"
-          WINEARCH: ${{matrix.win-version}}
-        continue-on-error: true
+          FFMPEG_CACHE_DIR: /home/runner/.cache/ci/r128gain/ffmpeg-win${{matrix.bits}}
+          FFMPEG_VERSION: "5.0"
+          WINEARCH: win${{matrix.bits}}

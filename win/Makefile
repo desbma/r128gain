@@ -41,8 +41,13 @@ ifeq ($(shell lsb_release -si),Ubuntu)
 WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/lib/libwinpthread-1.dll
 WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll
 else
+ifeq ($(shell test -e /etc/redhat-release && echo true),true)
+WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/sys-root/mingw/bin/libwinpthread-1.dll
+WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/sys-root/mingw/bin/libwinpthread-1.dll
+else
 WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/bin/libwinpthread-1.dll
 WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll
+endif
 endif
 WINPTHREAD_DLL       := ${WINPTHREAD_DLL_${WINEARCH}}
 
