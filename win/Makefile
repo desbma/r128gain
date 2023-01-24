@@ -126,10 +126,8 @@ sample.opus: ${DOWNLOAD_DIR}/sample.opus
 #
 
 .requirements: ${PIP_INSTALLED} ${FUTURE_INSTALLED}
-	cp -r $(dir ${PYTHON_INSTALLED})Lib/site-packages/* $(dir ${PYTHON_INSTALLED})
 	cd .. && ${WINE_PIP} -qq install -r requirements.txt
 	cd .. && ${WINE_PIP} -qq install .
-	cp -r $(dir ${PYTHON_INSTALLED})Lib/site-packages/* $(dir ${PYTHON_INSTALLED})
 	touch $@
 
 ${PYTHON_INSTALLED}: ${PYTHON_EMBEDDABLE_ARCHIVE}
@@ -137,10 +135,10 @@ ${PYTHON_INSTALLED}: ${PYTHON_EMBEDDABLE_ARCHIVE}
 	${UNZIP} -d $(dir $@) $<
 	${UNZIP} -d $(dir $@) $(dir $@)python${PYTHON_VERSION_SHORT}.zip
 	rm $(dir $@)python${PYTHON_VERSION_SHORT}.zip
+	echo 'import site' >>$(dir $@)python${PYTHON_VERSION_SHORT}._pth
 
 ${PIP_INSTALLED}: ${PYTHON_INSTALLED} ${GET_PIP}
 	${WINE_PYTHON} ${GET_PIP} install -qq
-	cp -r $(dir ${PYTHON_INSTALLED})Lib/site-packages/* $(dir ${PYTHON_INSTALLED})
 	touch $@
 
 ${FUTURE_INSTALLED}: ${FUTURE_WHEEL} ${PIP_INSTALLED}
