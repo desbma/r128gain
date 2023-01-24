@@ -6,7 +6,7 @@ FFMPEG_CACHE_DIR  ?= ${HOME}/.cache/ci/r128gain/ffmpeg-${WINEARCH}
 PYTHON_VERSION       := 3.8.10
 PYTHON_VERSION_MAJOR := $(word 1,$(subst ., ,${PYTHON_VERSION})).$(word 2,$(subst ., ,${PYTHON_VERSION}))
 PYTHON_VERSION_SHORT := $(subst .,,${PYTHON_VERSION_MAJOR})
-CXFREEZE_VERSION     := 6.10
+CXFREEZE_VERSION     := 6.14.0
 SOX_VERSION          := 14.4.2
 
 # installers & packages
@@ -138,7 +138,7 @@ ${PYTHON_INSTALLED}: ${PYTHON_EMBEDDABLE_ARCHIVE}
 	echo 'import site' >>$(dir $@)python${PYTHON_VERSION_SHORT}._pth
 
 ${PIP_INSTALLED}: ${PYTHON_INSTALLED} ${GET_PIP}
-	${WINE_PYTHON} ${GET_PIP} install -qq
+	${WINE_PYTHON} ${GET_PIP} -qq
 	touch $@
 
 ${FUTURE_INSTALLED}: ${FUTURE_WHEEL} ${PIP_INSTALLED}
@@ -182,11 +182,11 @@ ${FUTURE_WHEEL}:
 
 ${CXFREEZE_WHEEL-win32}:
 	mkdir -p $(dir $@)
-	${CURL} https://files.pythonhosted.org/packages/9c/73/200ff06563430919f6f52e161c9be5ce23cc23e22675896f8691f38a1542/$(notdir $@) > $@
+	${CURL} https://files.pythonhosted.org/packages/00/6f/f05b5d50e1932c33d8aa8b0af255c5fc3f3830e6af1a82529509be0a1490/$(notdir $@) > $@
 
 ${CXFREEZE_WHEEL-win64}:
 	mkdir -p $(dir $@)
-	${CURL} https://files.pythonhosted.org/packages/ab/29/fe15bfebe9c8d7d2fa82917dc55e8f24eac3ba05e8381c110445362e8171/$(notdir $@) > $@
+	${CURL} https://files.pythonhosted.org/packages/0d/bd/6ccd8b1f5ba4a12fbb5cc43dc53fa3741fb7b776b07c58d4bbb94fabc590/$(notdir $@) > $@
 
 ${7ZIP_INSTALLER}:
 	mkdir -p $(dir $@)
