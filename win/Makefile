@@ -33,8 +33,10 @@ PIP_INSTALLED      := $(dir ${PYTHON_INSTALLED})Scripts/pip.exe
 FUTURE_INSTALLED   := $(dir ${PYTHON_INSTALLED})Lib/site-packages/future/__init__.py
 CXFREEZE_INSTALLED := $(dir ${PYTHON_INSTALLED})Scripts/cxfreeze
 7ZIP_INSTALLED       := ${WINE_DIR}/drive_c/7-Zip/7z.sfx
-SOX_INSTALLED        := ${WINE_DIR}/drive_c/windows/system32/sox.exe
-FFMPEG_INSTALLED     := ${WINE_DIR}/drive_c/windows/system32/ffmpeg.exe
+SOX_DIR              := sox-${SOX_VERSION}
+SOX_INSTALLED        := ${WINE_DIR}/drive_c/${SOX_DIR}/sox.exe
+FFMPEG_DIR           := ffmpeg
+FFMPEG_INSTALLED     := ${WINE_DIR}/drive_c/${FFMPEG_DIR}/ffmpeg.exe
 ifeq ($(shell lsb_release -si),Ubuntu)
 WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/lib/libwinpthread-1.dll
 WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll
@@ -45,7 +47,7 @@ endif
 WINPTHREAD_DLL       := ${WINPTHREAD_DLL_${WINEARCH}}
 
 # wine env
-WINE        := WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDLLOVERRIDES="mscoree,mshtml=" WINEDEBUG=-all wine
+WINE        := WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDLLOVERRIDES="mscoree,mshtml=" WINEDEBUG=-all WINEPATH="C:\\${SOX_DIR};C:\\${FFMPEG_DIR}" wine
 WINE_PYTHON := ${WINE} ${PYTHON_INSTALLED}
 WINE_PIP    := ${WINE} ${PIP_INSTALLED}
 
@@ -153,15 +155,14 @@ ${7ZIP_INSTALLED}: ${7ZIP_INSTALLER}
 	${WINE} msiexec /i $< /qb INSTALLDIR='c:\7-Zip'
 	touch $@
 
-${FFMPEG_INSTALLED}:
+${FFMPEG_INSTALLED}: ${WINPTHREAD_DLL}
 	mkdir -p $(dir $@)
 	./cross-build-minimal-ffmpeg ${FFMPEG_VERSION} ${WINEARCH} ${FFMPEG_CACHE_DIR} $@
+	cp ${WINPTHREAD_DLL} $(dir $@)
 
 ${SOX_INSTALLED}: ${SOX_ZIP}
 	mkdir -p ${WINE_DIR}/drive_c
 	${UNZIP} $< -d ${WINE_DIR}/drive_c
-	cp ${WINE_DIR}/drive_c/sox-${SOX_VERSION}/*.dll $(dir $@)
-	cp ${WINE_DIR}/drive_c/sox-${SOX_VERSION}/sox.exe $@
 
 
 #
