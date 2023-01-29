@@ -6,7 +6,7 @@ FFMPEG_CACHE_DIR  ?= ${HOME}/.cache/ci/r128gain/ffmpeg-${WINEARCH}
 PYTHON_VERSION       := 3.8.10
 PYTHON_VERSION_MAJOR := $(word 1,$(subst ., ,${PYTHON_VERSION})).$(word 2,$(subst ., ,${PYTHON_VERSION}))
 PYTHON_VERSION_SHORT := $(subst .,,${PYTHON_VERSION_MAJOR})
-CXFREEZE_VERSION     := 6.10
+CXFREEZE_VERSION     := 6.14.0
 SOX_VERSION          := 14.4.2
 
 # installers & packages
@@ -33,19 +33,26 @@ PIP_INSTALLED      := $(dir ${PYTHON_INSTALLED})Scripts/pip.exe
 FUTURE_INSTALLED   := $(dir ${PYTHON_INSTALLED})Lib/site-packages/future/__init__.py
 CXFREEZE_INSTALLED := $(dir ${PYTHON_INSTALLED})Scripts/cxfreeze
 7ZIP_INSTALLED       := ${WINE_DIR}/drive_c/7-Zip/7z.sfx
-SOX_INSTALLED        := ${WINE_DIR}/drive_c/windows/system32/sox.exe
-FFMPEG_INSTALLED     := ${WINE_DIR}/drive_c/windows/system32/ffmpeg.exe
+SOX_DIR              := sox-${SOX_VERSION}
+SOX_INSTALLED        := ${WINE_DIR}/drive_c/${SOX_DIR}/sox.exe
+FFMPEG_DIR           := ffmpeg
+FFMPEG_INSTALLED     := ${WINE_DIR}/drive_c/${FFMPEG_DIR}/ffmpeg.exe
 ifeq ($(shell lsb_release -si),Ubuntu)
 WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/lib/libwinpthread-1.dll
 WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll
 else
+ifeq ($(shell test -e /etc/redhat-release && echo true),true)
+WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/sys-root/mingw/bin/libwinpthread-1.dll
+WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/sys-root/mingw/bin/libwinpthread-1.dll
+else
 WINPTHREAD_DLL_win32 := /usr/i686-w64-mingw32/bin/libwinpthread-1.dll
 WINPTHREAD_DLL_win64 := /usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll
+endif
 endif
 WINPTHREAD_DLL       := ${WINPTHREAD_DLL_${WINEARCH}}
 
 # wine env
-WINE        := WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDLLOVERRIDES="mscoree,mshtml=" WINEDEBUG=-all wine
+WINE        := WINEPREFIX=${WINE_DIR} WINEARCH=${WINEARCH} WINEDLLOVERRIDES="mscoree,mshtml=" WINEDEBUG=-all WINEPATH="C:\\${SOX_DIR};C:\\${FFMPEG_DIR}" wine
 WINE_PYTHON := ${WINE} ${PYTHON_INSTALLED}
 WINE_PIP    := ${WINE} ${PIP_INSTALLED}
 
@@ -126,10 +133,8 @@ sample.opus: ${DOWNLOAD_DIR}/sample.opus
 #
 
 .requirements: ${PIP_INSTALLED} ${FUTURE_INSTALLED}
-	cp -r $(dir ${PYTHON_INSTALLED})Lib/site-packages/* $(dir ${PYTHON_INSTALLED})
 	cd .. && ${WINE_PIP} -qq install -r requirements.txt
 	cd .. && ${WINE_PIP} -qq install .
-	cp -r $(dir ${PYTHON_INSTALLED})Lib/site-packages/* $(dir ${PYTHON_INSTALLED})
 	touch $@
 
 ${PYTHON_INSTALLED}: ${PYTHON_EMBEDDABLE_ARCHIVE}
@@ -137,10 +142,10 @@ ${PYTHON_INSTALLED}: ${PYTHON_EMBEDDABLE_ARCHIVE}
 	${UNZIP} -d $(dir $@) $<
 	${UNZIP} -d $(dir $@) $(dir $@)python${PYTHON_VERSION_SHORT}.zip
 	rm $(dir $@)python${PYTHON_VERSION_SHORT}.zip
+	echo 'import site' >>$(dir $@)python${PYTHON_VERSION_SHORT}._pth
 
 ${PIP_INSTALLED}: ${PYTHON_INSTALLED} ${GET_PIP}
-	${WINE_PYTHON} ${GET_PIP} install -qq
-	cp -r $(dir ${PYTHON_INSTALLED})Lib/site-packages/* $(dir ${PYTHON_INSTALLED})
+	${WINE_PYTHON} ${GET_PIP} -qq
 	touch $@
 
 ${FUTURE_INSTALLED}: ${FUTURE_WHEEL} ${PIP_INSTALLED}
@@ -155,15 +160,14 @@ ${7ZIP_INSTALLED}: ${7ZIP_INSTALLER}
 	${WINE} msiexec /i $< /qb INSTALLDIR='c:\7-Zip'
 	touch $@
 
-${FFMPEG_INSTALLED}:
+${FFMPEG_INSTALLED}: ${WINPTHREAD_DLL}
 	mkdir -p $(dir $@)
 	./cross-build-minimal-ffmpeg ${FFMPEG_VERSION} ${WINEARCH} ${FFMPEG_CACHE_DIR} $@
+	cp ${WINPTHREAD_DLL} $(dir $@)
 
 ${SOX_INSTALLED}: ${SOX_ZIP}
 	mkdir -p ${WINE_DIR}/drive_c
 	${UNZIP} $< -d ${WINE_DIR}/drive_c
-	cp ${WINE_DIR}/drive_c/sox-${SOX_VERSION}/*.dll $(dir $@)
-	cp ${WINE_DIR}/drive_c/sox-${SOX_VERSION}/sox.exe $@
 
 
 #
@@ -184,11 +188,11 @@ ${FUTURE_WHEEL}:
 
 ${CXFREEZE_WHEEL-win32}:
 	mkdir -p $(dir $@)
-	${CURL} https://files.pythonhosted.org/packages/9c/73/200ff06563430919f6f52e161c9be5ce23cc23e22675896f8691f38a1542/$(notdir $@) > $@
+	${CURL} https://files.pythonhosted.org/packages/00/6f/f05b5d50e1932c33d8aa8b0af255c5fc3f3830e6af1a82529509be0a1490/$(notdir $@) > $@
 
 ${CXFREEZE_WHEEL-win64}:
 	mkdir -p $(dir $@)
-	${CURL} https://files.pythonhosted.org/packages/ab/29/fe15bfebe9c8d7d2fa82917dc55e8f24eac3ba05e8381c110445362e8171/$(notdir $@) > $@
+	${CURL} https://files.pythonhosted.org/packages/0d/bd/6ccd8b1f5ba4a12fbb5cc43dc53fa3741fb7b776b07c58d4bbb94fabc590/$(notdir $@) > $@
 
 ${7ZIP_INSTALLER}:
 	mkdir -p $(dir $@)
