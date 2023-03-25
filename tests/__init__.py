@@ -434,7 +434,6 @@ class TestR128Gain(unittest.TestCase):
         )
 
         for i, skip_tagged in enumerate((True, False, True)):
-
             if i == 0:
                 for file in files:
                     self.assertEqual(r128gain.has_loudness_tag(file), (False, False))
@@ -443,7 +442,6 @@ class TestR128Gain(unittest.TestCase):
                 with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), unittest.mock.patch(
                     "r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness
                 ) as get_r128_loudness_mock:
-
                     r128gain.process(files, album_gain=album_gain, skip_tagged=skip_tagged)
 
                     if skip_tagged and (i > 0):
@@ -673,12 +671,10 @@ class TestR128Gain(unittest.TestCase):
         # └── f.wv
 
         for i, skip_tagged in enumerate((True, False, True)):
-
             for album_gain in (False, True):
                 with self.subTest(i=i, skip_tagged=skip_tagged, album_gain=album_gain), unittest.mock.patch(
                     "r128gain.get_r128_loudness", wraps=r128gain.get_r128_loudness
                 ) as get_r128_loudness_mock:
-
                     r128gain.process_recursive((self.temp_dir.name,), album_gain=album_gain, skip_tagged=skip_tagged)
 
                     if skip_tagged and (i > 0):

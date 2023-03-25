@@ -274,7 +274,7 @@ def scan(
 
         futures: Dict[concurrent.futures.Future, Union[str, int]] = {}
         if album_gain:
-            if skip_tagged and all(map(operator.itemgetter(1), loudness_tags)):
+            if skip_tagged and all(map(operator.itemgetter(1), loudness_tags)):  # type: ignore
                 logger().info("All files already have an album gain tag, skipping album gain scan")
             elif audio_filepaths:
                 calc_album_peak = any(map(lambda x: os.path.splitext(x)[-1].lower() != ".opus", audio_filepaths))
