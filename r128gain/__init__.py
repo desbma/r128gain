@@ -143,7 +143,10 @@ def get_r128_loudness(  # noqa: C901
     ffmpeg_path: Optional[str] = None,
     start_evt: Optional[threading.Event] = None,
 ) -> Tuple[float, Optional[float]]:
-    """Get R128 loudness loudness level and sample peak."""
+    """Get R128 loudness level and sample peak as dBFS."""
+    if calc_peak and (len(audio_filepaths) > 1):
+        raise NotImplementedError()
+
     if start_evt is not None:
         start_evt.wait()
 
@@ -168,22 +171,21 @@ def get_r128_loudness(  # noqa: C901
     output_streams = []
     ffmpeg_r128_streams = []
     for ffmpeg_input in ffmpeg_inputs:
-        ffmpeg_input = ffmpeg_input.filter("aformat", sample_fmts="s16", sample_rates="48000", channel_layouts="stereo")
-        if calc_peak:
-            split_streams = ffmpeg_input.filter_multi_output("asplit", outputs=2)
-            ffmpeg_rg_stream, ffmpeg_r128_stream = split_streams[0], split_streams[1]
-            ffmpeg_rg_stream = ffmpeg_rg_stream.filter("replaygain")
-            ffmpeg_rg_stream = ffmpeg_rg_stream.filter("anullsink")
-            output_streams.append(ffmpeg_rg_stream)
-        else:
-            ffmpeg_r128_stream = ffmpeg_input
-        ffmpeg_r128_streams.append(ffmpeg_r128_stream)
+        if len(ffmpeg_inputs) > 1:
+            # we need to convert to a common sample format before merging
+            ffmpeg_input = ffmpeg_input.filter(
+                "aformat", sample_fmts="flt", sample_rates="192000", channel_layouts="stereo"
+            )
+        ffmpeg_r128_streams.append(ffmpeg_input)
 
-    if len(audio_filepaths) > 1:
+    if len(ffmpeg_r128_streams) > 1:
         ffmpeg_r128_merged = ffmpeg.concat(*ffmpeg_r128_streams, n=len(ffmpeg_r128_streams), v=0, a=1)
     else:
         ffmpeg_r128_merged = ffmpeg_r128_streams[0]
-    ffmpeg_r128_merged = ffmpeg_r128_merged.filter("ebur128", framelog="verbose")
+    r128_opts = {"framelog": "verbose"}
+    if calc_peak:
+        r128_opts["peak"] = "sample"
+    ffmpeg_r128_merged = ffmpeg_r128_merged.filter("ebur128", **r128_opts)
     output_streams.append(ffmpeg_r128_merged)
 
     if (get_ffmpeg_lib_versions()["libavfilter"] >= 0x06526400) and (not enable_ffmpeg_threading):
@@ -200,18 +202,6 @@ def get_r128_loudness(  # noqa: C901
     # run
     output = run_ffmpeg(cmd)
     output_lines = output.decode("utf-8", errors="replace").splitlines()
-
-    if calc_peak:
-        # parse replaygain filter output
-        sample_peaks = []
-        for line in reversed(output_lines):
-            if line.startswith("[Parsed_replaygain_") and ("] track_peak = " in line):
-                sample_peaks.append(float(line.rsplit("=", 1)[1]))
-                if len(sample_peaks) == len(audio_filepaths):
-                    break
-        sample_peak: Optional[float] = max(sample_peaks)
-    else:
-        sample_peak = None
 
     # parse r128 filter output
     unrelated_line = True
@@ -230,6 +220,12 @@ def get_r128_loudness(  # noqa: C901
         if not line.endswith(":")
     )
     r128_stats: Dict[str, float] = {k: float(v.split(" ", 1)[0]) for k, v in r128_stats_raw.items()}
+
+    if calc_peak:
+        # some codecs only decode to float sample format, therefore sample peak can be >0
+        sample_peak = min(0, r128_stats["Peak"])
+    else:
+        sample_peak = None
 
     return r128_stats["I"], sample_peak
 
@@ -273,15 +269,20 @@ def scan(
         loudness_tags = tuple(filter(None, loudness_tags))
 
         futures: Dict[concurrent.futures.Future, Union[str, int]] = {}
+        album_gain_skipped = True
         if album_gain:
-            if skip_tagged and all(map(operator.itemgetter(1), loudness_tags)):  # type: ignore
-                logger().info("All files already have an album gain tag, skipping album gain scan")
+            if (
+                skip_tagged
+                and all(map(operator.itemgetter(1), loudness_tags))  # type: ignore
+                and all(map(operator.itemgetter(0), loudness_tags))  # type: ignore
+            ):
+                logger().info("All files already have track and album gain tags, skipping album gain scan")
             elif audio_filepaths:
-                calc_album_peak = any(map(lambda x: os.path.splitext(x)[-1].lower() != ".opus", audio_filepaths))
+                album_gain_skipped = False
                 future = executor.submit(
                     get_r128_loudness,
                     audio_filepaths,
-                    calc_peak=calc_album_peak,
+                    calc_peak=False,
                     enable_ffmpeg_threading=enable_ffmpeg_threading,
                     ffmpeg_path=ffmpeg_path,
                     start_evt=start_evt,
@@ -290,20 +291,15 @@ def scan(
         audio_filepath: Union[str, int]
         for audio_filepath, has_tags in zip(audio_filepaths, loudness_tags):
             assert has_tags is not None
-            if skip_tagged and has_tags[0]:
+            if skip_tagged and has_tags[0] and ((not album_gain) or album_gain_skipped):
                 logger().info(f"File {audio_filepath!r} already has a track gain tag, skipping track gain scan")
                 # create dummy future
                 future = executor.submit(lambda: None)  # type: ignore
             else:
-                if os.path.splitext(audio_filepath)[-1].lower() == ".opus":
-                    # http://www.rfcreader.com/#rfc7845_line1060
-                    calc_peak = False
-                else:
-                    calc_peak = True
                 future = executor.submit(
                     get_r128_loudness,
                     (audio_filepath,),
-                    calc_peak=calc_peak,
+                    calc_peak=True,
                     enable_ffmpeg_threading=enable_ffmpeg_threading,
                     ffmpeg_path=ffmpeg_path,
                     start_evt=start_evt,
@@ -344,6 +340,13 @@ def scan(
 
                 del futures[done_future]
 
+    if ALBUM_GAIN_KEY in r128_data:
+        # set album peak as maximum of track peaks
+        r128_data[ALBUM_GAIN_KEY] = (
+            r128_data[ALBUM_GAIN_KEY][0],
+            max(d[1] for d in r128_data.values() if d[1] is not None),
+        )
+
     return r128_data
 
 
@@ -379,9 +382,9 @@ def tag(  # noqa: C901
     assert (loudness is not None) or (album_loudness is not None)
 
     if peak is not None:
-        assert 0 <= peak <= 1.0
+        assert peak <= 0
         if album_peak is not None:
-            assert 0 <= album_peak <= 1.0
+            assert album_peak <= 0
 
     logger().info(f"Tagging file {filepath!r}")
     original_mtime = os.path.getmtime(filepath)
@@ -412,7 +415,11 @@ def tag(  # noqa: C901
                 )
             )
             mf.tags.add(
-                mutagen.id3.TXXX(encoding=mutagen.id3.Encoding.LATIN1, desc="REPLAYGAIN_TRACK_PEAK", text=f"{peak:.6f}")
+                mutagen.id3.TXXX(
+                    encoding=mutagen.id3.Encoding.LATIN1,
+                    desc="REPLAYGAIN_TRACK_PEAK",
+                    text=f"{gain_to_scale(peak):.6f}",
+                )
             )
         if album_loudness is not None:
             assert album_peak is not None
@@ -425,7 +432,9 @@ def tag(  # noqa: C901
             )
             mf.tags.add(
                 mutagen.id3.TXXX(
-                    encoding=mutagen.id3.Encoding.LATIN1, desc="REPLAYGAIN_ALBUM_PEAK", text=f"{album_peak:.6f}"
+                    encoding=mutagen.id3.Encoding.LATIN1,
+                    desc="REPLAYGAIN_ALBUM_PEAK",
+                    text=f"{gain_to_scale(album_peak):.6f}",
                 )
             )
         # other legacy formats:
@@ -471,11 +480,11 @@ def tag(  # noqa: C901
         if loudness is not None:
             assert peak is not None
             mf["REPLAYGAIN_TRACK_GAIN"] = f"{RG2_REF_R128_LOUDNESS_DBFS - loudness:.2f} dB"
-            mf["REPLAYGAIN_TRACK_PEAK"] = f"{peak:.8f}"
+            mf["REPLAYGAIN_TRACK_PEAK"] = f"{gain_to_scale(peak):.8f}"
         if album_loudness is not None:
             assert album_peak is not None
             mf["REPLAYGAIN_ALBUM_GAIN"] = f"{RG2_REF_R128_LOUDNESS_DBFS - album_loudness:.2f} dB"
-            mf["REPLAYGAIN_ALBUM_PEAK"] = f"{album_peak:.8f}"
+            mf["REPLAYGAIN_ALBUM_PEAK"] = f"{gain_to_scale(album_peak):.8f}"
 
     elif isinstance(mf.tags, mutagen.mp4.MP4Tags):
         # https://github.com/xbmc/xbmc/blob/9e855967380ef3a5d25718ff2e6db5e3dd2e2829/xbmc/music/tags/TagLoaderTagLib.cpp#L806-L812
@@ -484,13 +493,17 @@ def tag(  # noqa: C901
             mf["----:com.apple.iTunes:replaygain_track_gain"] = mutagen.mp4.MP4FreeForm(
                 f"{RG2_REF_R128_LOUDNESS_DBFS - loudness:.2f} dB".encode()
             )
-            mf["----:com.apple.iTunes:replaygain_track_peak"] = mutagen.mp4.MP4FreeForm(f"{peak:.6f}".encode())
+            mf["----:com.apple.iTunes:replaygain_track_peak"] = mutagen.mp4.MP4FreeForm(
+                f"{gain_to_scale(peak):.6f}".encode()
+            )
         if album_loudness is not None:
             assert album_peak is not None
             mf["----:com.apple.iTunes:replaygain_album_gain"] = mutagen.mp4.MP4FreeForm(
                 f"{RG2_REF_R128_LOUDNESS_DBFS - album_loudness:.2f} dB".encode()
             )
-            mf["----:com.apple.iTunes:replaygain_album_peak"] = mutagen.mp4.MP4FreeForm(f"{album_peak:.6f}".encode())
+            mf["----:com.apple.iTunes:replaygain_album_peak"] = mutagen.mp4.MP4FreeForm(
+                f"{gain_to_scale(album_peak):.6f}".encode()
+            )
 
     else:
         raise RuntimeError(f"Unhandled {mf.__class__.__qualname__!r} tag format for file {filepath!r}")
@@ -564,7 +577,7 @@ def show_scan_report(
             if peak is None:
                 peak_str = "-"
             else:
-                peak_str = f"{scale_to_gain(peak):.1f} dBFS"
+                peak_str = f"{peak:.1f} dBFS"
         logger().info(f"File {audio_filepath!r}: loudness = {loudness_str}, sample peak = {peak_str}")
 
     # album loudness/peak
@@ -578,7 +591,7 @@ def show_scan_report(
             if album_peak is None:
                 album_peak_str = "-"
             else:
-                album_peak_str = f"{scale_to_gain(album_peak):.1f} dBFS"
+                album_peak_str = f"{album_peak:.1f} dBFS"
         logger().info(f"Album {album_dir!r}: loudness = {album_loudness_str}, sample peak = {album_peak_str}")
 
 
@@ -775,6 +788,13 @@ def process_recursive(  # noqa: C901
                     else:
                         if result is not None:
                             r128_data[key] = result
+
+                if ALBUM_GAIN_KEY in r128_data:
+                    # set album peak as maximum of track peaks
+                    r128_data[ALBUM_GAIN_KEY] = (
+                        r128_data[ALBUM_GAIN_KEY][0],
+                        max(d[1] for d in r128_data.values() if d[1] is not None),
+                    )
 
                 if report and audio_filepaths:
                     show_scan_report(
