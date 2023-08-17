@@ -2,6 +2,16 @@
 
 ## Fast audio loudness scanner & tagger
 
+---
+
+**This project is no longer maintained.**
+
+**When I first wrote it, there was simply no solution to analyze audio loudness and tag files accordingly on Linux from the ReplayGain v2 or Opus R128 conventions.**
+
+**Now there are several better maintained alternatives, and I recommend using [rsgain](https://github.com/complexlogic/rsgain) instead.**
+
+---
+
 [![PyPI version](https://img.shields.io/pypi/v/r128gain.svg?style=flat)](https://pypi.python.org/pypi/r128gain/)
 [![AUR version](https://img.shields.io/aur/version/r128gain.svg?style=flat)](https://aur.archlinux.org/packages/r128gain/)
 [![Tests status](https://github.com/desbma/r128gain/actions/workflows/ci.yml/badge.svg)](https://github.com/desbma/r128gain/actions/)
